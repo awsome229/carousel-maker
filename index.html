@@ -23,7 +23,7 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--ground);color:var(--text);font:var(--t-body)/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;overscroll-behavior:none;-webkit-font-smoothing:antialiased}
-body{display:flex;flex-direction:column;height:100dvh;overflow:hidden;user-select:none;-webkit-user-select:none}
+body{display:flex;flex-direction:column;height:calc(100dvh + var(--fix,0px));overflow:hidden;user-select:none;-webkit-user-select:none}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
@@ -65,7 +65,7 @@ nav#tray{background:var(--surface);-webkit-backdrop-filter:blur(24px);backdrop-f
 .croprow{display:flex;align-items:center;gap:12px;width:100%;max-width:520px;padding:0 6px;font-weight:600}
 .croprow input{flex:1}
 
-#sheet{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--surface);-webkit-backdrop-filter:blur(30px) saturate(1.4);backdrop-filter:blur(30px) saturate(1.4);border-radius:var(--r-l) var(--r-l) 0 0;border-top:1px solid var(--hair);padding:0 16px calc(18px + env(safe-area-inset-bottom));max-height:58dvh;overflow:auto;transform:translateY(calc(100% + 24px));visibility:hidden;transition:transform .38s var(--ease),visibility 0s .38s}
+#sheet{position:fixed;left:0;right:0;bottom:calc(-1 * var(--fix,0px));z-index:5;background:var(--surface);-webkit-backdrop-filter:blur(30px) saturate(1.4);backdrop-filter:blur(30px) saturate(1.4);border-radius:var(--r-l) var(--r-l) 0 0;border-top:1px solid var(--hair);padding:0 16px calc(18px + env(safe-area-inset-bottom));max-height:58dvh;overflow:auto;transform:translateY(calc(100% + 24px));visibility:hidden;transition:transform .38s var(--ease),visibility 0s .38s}
 #sheet.open{transform:none;visibility:visible;transition:transform .38s var(--ease)}
 #sheet::before{content:"";display:block;width:36px;height:5px;border-radius:3px;background:var(--fill-2);margin:8px auto 0}
 .sh-head{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:6px 0 10px}
@@ -97,7 +97,7 @@ textarea{width:100%;font:inherit;font-size:17px;color:var(--text);background:var
 .list button:last-child{border-bottom:0}
 .list button.danger{color:var(--danger)}
 
-.modal{position:fixed;inset:0;z-index:10;background:rgba(0,0,0,.6);display:none;align-items:flex-end;justify-content:center}
+.modal{position:fixed;inset:0;bottom:calc(-1 * var(--fix,0px));z-index:10;background:rgba(0,0,0,.6);display:none;align-items:flex-end;justify-content:center}
 .modal.open{display:flex}
 @media (min-width:600px){.modal{align-items:center;padding:16px}}
 .panel{background:var(--solid);border-radius:var(--r-l) var(--r-l) 0 0;width:min(560px,100%);max-height:92dvh;overflow:auto;padding:20px 16px calc(18px + env(safe-area-inset-bottom))}
@@ -126,7 +126,7 @@ textarea{width:100%;font:inherit;font-size:17px;color:var(--text);background:var
 .count{position:absolute;margin:10px;right:0;background:rgba(0,0,0,.6);color:#fff;font-size:var(--t-cap);border-radius:10px;padding:2px 8px;font-variant-numeric:tabular-nums}
 
 #toast{position:fixed;left:50%;top:calc(60px + env(safe-area-inset-top));transform:translate(-50%,-12px);background:var(--sel);color:var(--sel-text);padding:10px 16px;border-radius:var(--r-m);font-weight:600;opacity:0;transition:opacity .2s,transform .3s var(--ease);pointer-events:none;z-index:20;max-width:90vw;text-align:center}
-#update{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+#update{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom) - var(--fix,0px));transform:translateX(-50%);z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.4)}
 #update[hidden]{display:none}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 #vids{position:fixed;width:2px;height:2px;opacity:.01;pointer-events:none;overflow:hidden;left:0;top:0}
@@ -752,7 +752,7 @@ const hapLabel = (() => { const l = document.createElement('label'), i = documen
 function tick(){ try { if (navigator.vibrate) navigator.vibrate(6); else hapLabel.click(); } catch {} }
 function tickOnStep(input){ if (input._last !== input.value) { if (input._last !== undefined) tick(); input._last = input.value; } }
 // Home-screen web apps keep running an old copy; check for a newer deploy whenever the app comes back to the front.
-const BUILD = '20261123-6';
+const BUILD = '20261123-7';
 let liveBuild = '';
 async function checkUpdate(){
   try {
@@ -765,6 +765,16 @@ async function checkUpdate(){
 $('#update').onclick = () => { if (!S.items.length || confirm('Updating reloads the page and clears this carousel. Update now?')) location.replace(location.pathname + '?v=' + liveBuild); };
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
 checkUpdate();
+// iOS home-screen apps draw under the status bar but report the viewport that much shorter (screen 852, inner 793 = 59pt
+// status bar), leaving a strip at the bottom. Measure the shortfall and grow the app by it; 0 wherever iOS reports correctly.
+function fixHeight(){
+  const probe = document.createElement('div'); probe.style.cssText = 'position:fixed;padding-top:env(safe-area-inset-top);visibility:hidden';
+  document.body.append(probe); const top = parseFloat(getComputedStyle(probe).paddingTop) || 0; probe.remove();
+  const full = innerWidth < innerHeight ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+  const short = full - innerHeight;
+  document.documentElement.style.setProperty('--fix', (navigator.standalone && short > 0 && short <= top + 1 ? short : 0) + 'px');
+}
+fixHeight(); addEventListener('resize', fixHeight);
 // Layout diagnostics for the iPhone home-screen gap: tap "Make a carousel" five times to show sizes on screen.
 let dbgTaps = 0;
 $('#empty h1').addEventListener('click', () => { if (++dbgTaps < 5) return; dbgTaps = 0; showDebug(); });
