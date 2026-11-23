@@ -41,7 +41,7 @@ svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke
 .seg button{flex:1 0 auto;min-height:38px;padding:0 12px;border-radius:11px;font-weight:600;color:var(--text-2);white-space:nowrap}
 .seg button[aria-pressed=true]{background:var(--sel);color:var(--sel-text)}
 
-header{display:flex;align-items:center;gap:4px;padding:calc(6px + env(safe-area-inset-top)) 8px 6px}
+header{background:var(--ground);position:relative;z-index:4;display:flex;align-items:center;gap:4px;padding:calc(6px + env(safe-area-inset-top)) 8px 6px}
 header .seg{margin:0 auto;flex:0 1 auto}
 header .seg button{min-height:34px;padding:0 13px}
 header .btn:not(.icon){min-height:38px;font-size:var(--t-body)}
@@ -267,7 +267,8 @@ function drawItem(ctx, it, alpha = 1){
     lines.forEach((l, i) => ctx.fillText(l, x, -it.h / 2 + lh * i + lh / 2));
   } else {
     const m = media.get(it.mediaId), w = it.w, h = it.h;
-    rrect(ctx, -w / 2, -h / 2, w, h, it.radius);
+    const rad = it.radius / 100 * Math.min(w, h); // corners: % of the shorter side
+    rrect(ctx, -w / 2, -h / 2, w, h, rad);
     const src = m && srcOf(m);
     if (!src) { ctx.fillStyle = '#d8d5ce'; ctx.fill(); }
     else {
@@ -276,9 +277,9 @@ function drawItem(ctx, it, alpha = 1){
       ctx.drawImage(src,-w / 2 + c.dx, -h / 2 + c.dy, c.dw, c.dh);
       ctx.restore();
     }
-    if (it.borderW > 0) { // inner border: double-width stroke clipped to the shape
-      ctx.save(); rrect(ctx, -w / 2, -h / 2, w, h, it.radius); ctx.clip();
-      ctx.lineWidth = it.borderW * 2; ctx.strokeStyle = it.borderC; ctx.stroke(); ctx.restore();
+    if (it.borderW > 0) { // inner outline, % of the 1080 px slide width: double-width stroke clipped to the shape
+      ctx.save(); rrect(ctx, -w / 2, -h / 2, w, h, rad); ctx.clip();
+      ctx.lineWidth = it.borderW / 100 * W() * 2; ctx.strokeStyle = it.borderC; ctx.stroke(); ctx.restore();
     }
   }
   ctx.restore();
@@ -513,7 +514,7 @@ function edgeSnap(a, dir, len, pos, sizes, th){ // a = fixed edge, dir = which w
   return best;
 }
 function moveSnap(it, nx, ny){
-  const {ex, ey} = ext(it), th = 10 / view.z, {xs, ys} = snapTargets(it);
+  const {ex, ey} = ext(it), th = 10 / view.z, {xs, ys} = snapTargets(it), had = guides.length;
   guides = [];
   const snap = (v, e, targets, key) => {
     let best = null;
@@ -525,6 +526,7 @@ function moveSnap(it, nx, ny){
     return v;
   };
   it.x = snap(nx, ex, xs, 'x'); it.y = snap(ny, ey, ys, 'y');
+  if (guides.length > had) tick(); // tick when a snap engages, not on every move while snapped
 }
 function resizeBy(it, i0, hd, wx, wy){
   const {hx, hy} = hd;
@@ -537,7 +539,7 @@ function resizeBy(it, i0, hd, wx, wy){
     w = i0.w * k; h = i0.h * k;
   } else if (hx) w = Math.max(40, dx * hx);
   else h = Math.max(40, dy * hy);
-  guides = [];
+  const had = guides.length; guides = [];
   if (!i0.rot) { // snap the moving edge to slide lines, other items' edges, or another item's exact size
     const T = snapTargets(it), th = 10 / view.z;
     const sx = hx ? edgeSnap(A[0], hx, w, T.xs, T.ws, th) : null;
@@ -550,6 +552,7 @@ function resizeBy(it, i0, hd, wx, wy){
       if (sy) { h = sy.len; guides.push({y:A[1] + hy * h}); }
     }
   }
+  if (guides.length > had) tick();
   it.w = w;
   if (it.type === 'text') { if (hx && hy) it.size = i0.size * w / i0.w; layoutText(it); } else it.h = h;
   const c = Math.cos(i0.rot), s = Math.sin(i0.rot), ox = hx * it.w / 2, oy = hy * (hx && !hy ? 0 : it.h / 2);
@@ -699,9 +702,9 @@ function updUI(){
   $('#empty').hidden = S.items.length > 0;
   const it = getSel();
   if (it && cropMode) {
-    tray.innerHTML = `<div class="croprow"><span>Zoom</span><input type="range" id="cz" min="1" max="5" step="0.01" value="${it.zoom}" aria-label="Zoom inside frame">
+    tray.innerHTML = `<div class="croprow"><span>Zoom</span><input type="range" id="cz" min="100" max="500" step="1" value="${Math.round(it.zoom * 100)}" aria-label="Zoom inside frame"><span class="val" id="czv">${Math.round(it.zoom * 100)}%</span>
       <button class="btn quiet" id="creset">Reset</button><button class="btn" id="cdone">Done</button></div>`;
-    $('#cz').oninput = e => { it.zoom = +e.target.value; dirty = true; };
+    $('#cz').oninput = e => { it.zoom = +e.target.value / 100; $('#czv').textContent = e.target.value + '%'; tickOnStep(e.target); dirty = true; };
     $('#cz').onchange = commit;
     $('#creset').onclick = () => { Object.assign(it, {fx:.5, fy:.5, zoom:1}); commit(); updUI(); };
     $('#cdone').onclick = () => { cropMode = false; updUI(); };
@@ -739,6 +742,12 @@ document.addEventListener('keydown', e => {
   }
 });
 window.addEventListener('beforeunload', e => { if (S.items.length) { e.preventDefault(); e.returnValue = ''; } });
+// Haptics: Android has navigator.vibrate; iPhone Safari (iOS 18+) gives a system tick when a switch-style checkbox
+// is toggled through its label, so tap a hidden one. Elsewhere this does nothing.
+const hapLabel = (() => { const l = document.createElement('label'), i = document.createElement('input');
+  i.type = 'checkbox'; i.setAttribute('switch', ''); l.append(i); l.style.display = 'none'; l.setAttribute('aria-hidden', 'true'); document.body.append(l); return l; })();
+function tick(){ try { if (navigator.vibrate) navigator.vibrate(6); else hapLabel.click(); } catch {} }
+function tickOnStep(input){ if (input._last !== input.value) { if (input._last !== undefined) tick(); input._last = input.value; } }
 let toastT;
 function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2200); }
 
@@ -759,7 +768,8 @@ const refresh = () => sheetFn && sheetFn();
 const esc = v => String(v).replace(/"/g, '&quot;');
 const swatches = (k, cur, bg) => `<div class="swatches"><span class="sw custom"><i></i><input type="color" value="${cur}" data-k="${k}"${bg ? ' data-bg' : ''} aria-label="Pick any colour"></span>${
   SWATCH.map(c => `<button class="sw${c === cur ? ' on' : ''}" data-sw="${c}" data-k="${k}"${bg ? ' data-bg' : ''} aria-label="${c}"><i style="background:${c}"></i></button>`).join('')}</div>`;
-const range = (label, k, min, max, step, v) => `<div class="row"><label>${label}</label><input type="range" min="${min}" max="${max}" step="${step}" value="${v}" data-k="${k}" aria-label="${label}"></div>`;
+const fmt = v => `${+(+v).toFixed(1)}%`;
+const range = (label, k, min, max, step, v, mul = 1) => `<div class="row"><label>${label}</label><input type="range" min="${min}" max="${max}" step="${step}" value="${+(v / mul).toFixed(2)}" data-k="${k}" data-mul="${mul}" aria-label="${label}"><span class="val">${fmt(v / mul)}</span></div>`;
 const seg = (attr, list, cur, label) => `<div class="seg" role="group" aria-label="${label}">${list.map(([v, l]) => `<button data-${attr}="${esc(v)}" aria-pressed="${String(v) === String(cur)}">${l}</button>`).join('')}</div>`;
 const gap = px => `<div style="height:${px}px"></div>`;
 
@@ -782,7 +792,7 @@ function sheetBorder(){
     ${gap(14)}${swatches('c1', S.bg.type === 'solid' ? S.bg.c1 : '#ffffff', true)}
     <div class="actions">${it && it.type !== 'text' ? '<button class="btn quiet" data-bapply="one">This photo</button>' : ''}<button class="btn" data-bapply="all">All photos</button></div>
     <p class="cap">All photos puts each one on its own slide.</p>`);
-  $('#bthick').oninput = e => { BORDER.v = +e.target.value; $('#bval').textContent = unit(BORDER.v); if ($('#bcap')) $('#bcap').textContent = `${Math.round(borderPx())} px on each side of a 1080 px slide`; saveBorder(); reborder(); };
+  $('#bthick').oninput = e => { tickOnStep(e.target); BORDER.v = +e.target.value; $('#bval').textContent = unit(BORDER.v); if ($('#bcap')) $('#bcap').textContent = `${Math.round(borderPx())} px on each side of a 1080 px slide`; saveBorder(); reborder(); };
   $('#bthick').onchange = () => { commit(); refresh(); };
 }
 const saveBorder = () => { try { localStorage.setItem('seam.border', JSON.stringify(BORDER)); } catch {} };
@@ -792,15 +802,16 @@ function sheetSlides(){
 }
 function sheetStyle(){
   const it = getSel(); if (!it) return;
-  openSheet(sheetStyle, 'Style', `${range('Corners', 'radius', 0, 540, 1, it.radius)}${range('Outline', 'borderW', 0, 80, 1, it.borderW)}
-    <div class="sec">Outline colour</div>${swatches('borderC', it.borderC)}${range('Opacity', 'opacity', .05, 1, .01, it.opacity)}`);
+  openSheet(sheetStyle, 'Style', `${range('Corners', 'radius', 0, 50, 1, it.radius)}${range('Outline', 'borderW', 0, 10, .5, it.borderW)}
+    <div class="sec">Outline colour</div>${swatches('borderC', it.borderC)}${range('Opacity', 'opacity', 5, 100, 1, it.opacity, .01)}
+    <p class="cap">Corners are a % of the photo’s shorter side. Outline is a % of the slide width, like Border.</p>`);
 }
 function sheetText(focus){
   const it = getSel(); if (!it || it.type !== 'text') return;
   openSheet(sheetText, 'Text', `<textarea data-k="text" aria-label="Text">${it.text.replace(/</g, '&lt;')}</textarea>
     ${gap(12)}${seg('font', Object.keys(FONTS).map(f => [f, `<span style="font-family:${FONTS[f].replace(/"/g, '&quot;')}">${f}</span>`]), it.font, 'Font')}
     ${gap(8)}<div class="row" style="margin:0">${seg('weight', [['400','Regular'],['700','Bold'],['900','Heavy']], String(it.weight), 'Weight')}${seg('align', [['left','Left'],['center','Centre'],['right','Right']], it.align, 'Alignment')}</div>
-    ${range('Size', 'size', 24, 400, 1, it.size)}${swatches('color', it.color)}${range('Opacity', 'opacity', .05, 1, .01, it.opacity)}`);
+    ${range('Size', 'size', 2, 37, .5, it.size, W() / 100)}${swatches('color', it.color)}${range('Opacity', 'opacity', 5, 100, 1, it.opacity, .01)}`);
   if (focus === true) setTimeout(() => { const t = sheet.querySelector('textarea'); t.focus(); t.select(); }, 60);
 }
 function sheetMore(){
@@ -813,7 +824,8 @@ function sheetMore(){
 sheet.addEventListener('input', e => {
   const t = e.target, k = t.dataset.k; if (!k) return;
   const tgt = 'bg' in t.dataset ? S.bg : getSel(); if (!tgt) return;
-  tgt[k] = t.type === 'range' ? +t.value : t.value;
+  if (t.type === 'range') { tgt[k] = +t.value * +(t.dataset.mul || 1); const v = t.nextElementSibling; if (v && v.classList.contains('val')) v.textContent = fmt(t.value); tickOnStep(t); }
+  else tgt[k] = t.value;
   if (tgt === S.bg && sheetFn === sheetBorder) S.bg.type = 'solid';
   if (tgt.type === 'text') layoutText(tgt);
   dirty = true;
