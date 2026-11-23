@@ -52,12 +52,6 @@ input[type=color]{width:40px;height:32px;border:0;padding:0;background:none;bord
 .sw{width:30px;height:30px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
 .sw.on{outline:2px solid var(--acc);outline-offset:2px}
 textarea{width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:12px;padding:10px;resize:vertical;min-height:70px}
-.layouts{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.lay{background:#f0eee9;border-radius:14px;padding:10px;text-align:left;font-size:13px;font-weight:650}
-.lay small{display:block;font-weight:500;color:var(--mute);margin-top:2px}
-.lay i{display:block;height:46px;margin-bottom:8px;border-radius:8px;background:#fff;position:relative;overflow:hidden}
-.lay i b{position:absolute;background:#c9c4b8;border-radius:3px}
-.lay i::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(33.33% - 1px),rgba(0,0,0,.25) calc(33.33% - 1px) 33.33%)}
 .stepper{display:flex;align-items:center;gap:14px;font-size:22px;font-weight:700}
 .stepper button{width:44px;height:44px;border-radius:12px;background:#f0eee9;font-size:22px}
 .modal{position:fixed;inset:0;z-index:10;background:rgba(20,20,18,.55);display:none;align-items:center;justify-content:center;padding:16px}
@@ -593,35 +587,12 @@ function borderAll(){
   commit(); fit(); updUI(); refresh();
 }
 
-/* ---------- layouts ---------- */
-const LAYOUTS = {
-  one:   {name:'One per slide', note:'Each photo fills a slide', boxes:[[0,0,33.3,100],[33.3,0,33.3,100],[66.6,0,33.4,100]]},
-  seam:  {name:'Seamless', note:'Photos straddle every seam', boxes:[[20,18,26,64],[53,18,26,64]]},
-  pano:  {name:'Panorama', note:'First photo spans all slides', boxes:[[0,0,100,100]]},
-  two:   {name:'Two per slide', note:'Stacked pairs with margins', boxes:[[3,6,27,40],[3,54,27,40],[36,6,27,40],[36,54,27,40],[70,6,27,40],[70,54,27,40]]}
-};
-function applyLayout(kind){
-  const ms = S.items.filter(i => i.type !== 'text');
-  if (!ms.length) return toast('Add photos or videos first');
-  const w = W(), h = H(), gap = 48, set = n => { S.slides = clamp(n, 1, MAX_SLIDES); };
-  if (kind === 'one') { set(ms.length); ms.slice(0, MAX_SLIDES).forEach((it, i) => frame(it, i * w, 0, w, h)); }
-  if (kind === 'pano') frame(ms[0], 0, 0, S.slides * w, h);
-  if (kind === 'seam') { set(ms.length + 1); ms.slice(0, MAX_SLIDES - 1).forEach((it, i) => frame(it, (i + 1) * w - w * .55, h * .16, w * 1.1, h * .68)); }
-  if (kind === 'two') {
-    set(Math.ceil(ms.length / 2));
-    ms.slice(0, MAX_SLIDES * 2).forEach((it, i) => frame(it, Math.floor(i / 2) * w + gap, gap + (i % 2) * (h / 2 - gap / 2), w - gap * 2, h / 2 - gap * 1.5));
-  }
-  if (ms.length > MAX_SLIDES && kind !== 'pano') toast('Some items didn’t fit in 20 slides');
-  commit(); fit(); updUI();
-}
-
 /* ---------- item actions ---------- */
 function act(name){
   const it = getSel(), idx = S.items.indexOf(it);
   if (name === 'media') return $('#file').click();
   if (name === 'text') return addText();
   if (name === 'bg') return sheetBg();
-  if (name === 'layout') return sheetLayouts();
   if (name === 'slides') return sheetSlides();
   if (name === 'border') return sheetBorder();
   if (!it) return;
@@ -641,7 +612,6 @@ const IC = {
   media:'<rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-9 8"/>',
   text:'<path d="M5 7V5h14v2M12 5v14M9 19h6"/>',
   bg:'<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M3 15 15 3M9 21 21 9"/>',
-  layout:'<rect x="3" y="4" width="8" height="16" rx="1.5"/><rect x="13" y="4" width="8" height="7" rx="1.5"/><rect x="13" y="13" width="8" height="7" rx="1.5"/>',
   border:'<rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="10" height="10" rx="1"/>',
   slides:'<rect x="2" y="6" width="6" height="12" rx="1"/><rect x="9" y="6" width="6" height="12" rx="1"/><rect x="16" y="6" width="6" height="12" rx="1"/>',
   crop:'<path d="M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2"/>',
@@ -672,7 +642,7 @@ function updUI(){
     return;
   }
   let tools;
-  if (!it) tools = [['media','Media'],['text','Text'],['bg','Background'],['border','Border'],['layout','Layouts'],['slides',`Slides · ${S.slides}`]];
+  if (!it) tools = [['media','Media'],['text','Text'],['bg','Background'],['border','Border'],['slides',`Slides · ${S.slides}`]];
   else if (it.type === 'text') tools = [['edit','Edit','style'],['up','Forward'],['down','Back'],['dup','Duplicate'],['del','Delete']];
   else tools = [['crop','Crop'],['border','Border'],['fill','Fill slide'],['style','Style'], ...(it.type === 'video' ? [[it.muted ? 'mute' : 'sound', it.muted ? 'Muted' : 'Sound', 'sound']] : []),
     ['up','Forward'],['down','Back'],['dup','Duplicate'],['del','Delete']];
@@ -722,9 +692,9 @@ const chips = (attr, list, cur) => `<div class="chips">${list.map(([v, l]) => `<
 function sheetBg(){
   const b = S.bg;
   openSheet(sheetBg, 'Background', `
-    <div class="sec">Presets</div><div class="chips">${BG_PRESETS.map((p, i) => `<button class="sw" data-preset="${i}" aria-label="Preset ${i + 1}" style="width:44px;height:44px;border-radius:12px;background:${p.type === 'grad' ? `linear-gradient(90deg,${p.c1},${p.c2})` : p.c1}"></button>`).join('')}</div>
-    <div class="sec">Type</div>${chips('bgtype', [['solid','Solid'],['grad','Gradient across slides']], b.type)}
-    <div class="sec">${b.type === 'grad' ? 'Start colour' : 'Colour'}</div>${swatches('c1', b.c1, true)}
+    <div class="chips" style="margin-top:4px">${BG_PRESETS.map((p, i) => `<button class="sw" data-preset="${i}" aria-label="Preset ${i + 1}" style="width:44px;height:44px;border-radius:12px;background:${p.type === 'grad' ? `linear-gradient(90deg,${p.c1},${p.c2})` : p.c1}"></button>`).join('')}</div>
+    <div style="height:14px"></div>${chips('bgtype', [['solid','Solid'],['grad','Gradient across slides']], b.type)}
+    ${b.type === 'grad' ? '<div class="sec">Start colour</div>' : '<div style="height:14px"></div>'}${swatches('c1', b.c1, true)}
     ${b.type === 'grad' ? `<div class="sec">End colour</div>${swatches('c2', b.c2, true)}` : ''}`);
 }
 function sheetBorder(){
@@ -734,7 +704,7 @@ function sheetBorder(){
     <div class="row"><input type="range" id="bthick" min="0" max="${max}" step="${step}" value="${Math.min(BORDER.v, max)}" aria-label="Border thickness" style="flex:1"><b id="bval" style="width:64px;text-align:right">${BORDER.v}${pct ? '%' : ' px'}</b></div>
     <div class="chips">${(pct ? [1, 2, 3, 5, 8] : [16, 24, 32, 48, 64]).map(v => `<button class="chip${v === BORDER.v ? ' on' : ''}" data-bv="${v}">${v}${pct ? '%' : ''}</button>`).join('')}</div>
     <p class="sub" style="margin:8px 0 0">${pct ? `${BORDER.v}% of the 1080 px slide width = ${Math.round(borderPx())} px on every side` : `${BORDER.v} px on every side of a 1080 px slide`}</p>
-    <div class="sec">Photo</div>${chips('bmode', [['fit','Fit — keep whole photo'],['fill','Fill — even border, crop photo']], BORDER.mode)}
+    <div style="height:14px"></div>${chips('bmode', [['fit','Fit — keep whole photo'],['fill','Fill — even border, crop photo']], BORDER.mode)}
     <div class="sec">Border colour</div>${swatches('c1', S.bg.type === 'solid' ? S.bg.c1 : '#ffffff', true)}
     <div class="btns" style="margin-top:16px">${it && it.type !== 'text' ? '<button class="ghost" data-bapply="one">This photo</button>' : ''}<button class="primary" data-bapply="all">All photos · one per slide</button></div>
     ${n ? `<p class="sub" style="margin-top:8px">${n} photo${n > 1 ? 's' : ''} follow this slider. Dragging a photo by hand unlinks it.</p>` : ''}`);
@@ -742,10 +712,6 @@ function sheetBorder(){
   $('#bthick').onchange = () => { commit(); refresh(); };
 }
 const saveBorder = () => localStorage.setItem('seam.border', JSON.stringify(BORDER));
-function sheetLayouts(){
-  openSheet(sheetLayouts, 'Layouts', `<p class="sub" style="margin-top:0">Arranges your photos &amp; videos in the order you added them. Undo if you don’t like it.</p>
-    <div class="layouts">${Object.entries(LAYOUTS).map(([k, l]) => `<button class="lay" data-layout="${k}"><i>${l.boxes.map(([x, y, w, h]) => `<b style="left:${x}%;top:${y}%;width:${w}%;height:${h}%"></b>`).join('')}</i>${l.name}<small>${l.note}</small></button>`).join('')}</div>`);
-}
 function sheetSlides(){
   openSheet(sheetSlides, 'Slides', `<div class="row" style="justify-content:space-between"><div class="stepper"><button data-slides="-1" aria-label="Remove slide">−</button><span>${S.slides}</span><button data-slides="1" aria-label="Add slide">+</button></div>
     <span class="sub" style="margin:0">Instagram allows 1–20</span></div>
@@ -753,16 +719,16 @@ function sheetSlides(){
 }
 function sheetStyle(){
   const it = getSel(); if (!it) return;
-  openSheet(sheetStyle, 'Style', `${range('Corners', 'radius', 0, 540, 1, it.radius)}${range('Border', 'borderW', 0, 80, 1, it.borderW)}
-    <div class="sec">Border colour</div>${swatches('borderC', it.borderC)}${range('Opacity', 'opacity', .05, 1, .01, it.opacity)}`);
+  openSheet(sheetStyle, 'Style', `${range('Corners', 'radius', 0, 540, 1, it.radius)}${range('Outline', 'borderW', 0, 80, 1, it.borderW)}
+    <div class="sec">Outline colour</div>${swatches('borderC', it.borderC)}${range('Opacity', 'opacity', .05, 1, .01, it.opacity)}`);
 }
 function sheetText(focus){
   const it = getSel(); if (!it || it.type !== 'text') return;
   openSheet(sheetText, 'Text', `<textarea data-k="text" aria-label="Text">${it.text.replace(/</g, '&lt;')}</textarea>
-    <div class="sec">Font</div>${chips('font', Object.keys(FONTS).map(f => [f, `<span style="font-family:${FONTS[f].replace(/"/g, '&quot;')}">${f}</span>`]), it.font)}
-    <div class="sec">Weight &amp; align</div>${chips('weight', [['400','Regular'],['700','Bold'],['900','Black']], String(it.weight))}
+    <div style="height:10px"></div>${chips('font', Object.keys(FONTS).map(f => [f, `<span style="font-family:${FONTS[f].replace(/"/g, '&quot;')}">${f}</span>`]), it.font)}
+    <div style="height:6px"></div>${chips('weight', [['400','Regular'],['700','Bold'],['900','Black']], String(it.weight))}
     <div style="height:6px"></div>${chips('align', [['left','Left'],['center','Center'],['right','Right']], it.align)}
-    ${range('Size', 'size', 24, 400, 1, it.size)}<div class="sec">Colour</div>${swatches('color', it.color)}${range('Opacity', 'opacity', .05, 1, .01, it.opacity)}`);
+    ${range('Size', 'size', 24, 400, 1, it.size)}<div style="height:6px"></div>${swatches('color', it.color)}${range('Opacity', 'opacity', .05, 1, .01, it.opacity)}`);
   if (focus === true) setTimeout(() => { const t = sheet.querySelector('textarea'); t.focus(); t.select(); }, 60);
 }
 sheet.addEventListener('input', e => {
@@ -786,7 +752,6 @@ sheet.addEventListener('click', e => {
   else if (d.sw) { ('bg' in d ? S.bg : it)[d.k] = d.sw; if (sheetFn === sheetBorder) S.bg.type = 'solid'; }
   else if (d.preset) Object.assign(S.bg, BG_PRESETS[+d.preset]);
   else if (d.bgtype) S.bg.type = d.bgtype;
-  else if (d.layout) return applyLayout(d.layout);
   else if (d.slides) { S.slides = clamp(S.slides + +d.slides, 1, MAX_SLIDES); fit(); }
   else if (it && d.font) it.font = d.font;
   else if (it && d.weight) it.weight = +d.weight;
