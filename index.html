@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Seam">
 <meta name="theme-color" content="#1c1d1f">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -23,7 +23,7 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--ground);color:var(--text);font:var(--t-body)/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;overscroll-behavior:none;-webkit-font-smoothing:antialiased}
-body{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden;user-select:none;-webkit-user-select:none}
+body{display:flex;flex-direction:column;height:100dvh;overflow:hidden;user-select:none;-webkit-user-select:none}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
@@ -57,8 +57,8 @@ canvas#cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;dis
 #empty[hidden]{display:none}
 #empty p{margin:0;color:var(--text-2);max-width:26em}
 
-nav#tray{background:var(--surface);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border-top:1px solid var(--hair);padding:4px 8px max(4px, calc(env(safe-area-inset-bottom) - 10px));display:flex;justify-content:space-around;align-items:center;min-height:56px;position:relative;z-index:3}
-.tool{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;flex:1;max-width:84px;min-height:48px;border-radius:var(--r-m);font-size:var(--t-cap);font-weight:500;color:var(--text-2)}
+nav#tray{background:var(--surface);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border-top:1px solid var(--hair);padding:6px 8px calc(6px + env(safe-area-inset-bottom));display:flex;justify-content:space-around;align-items:center;min-height:72px;position:relative;z-index:3}
+.tool{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;flex:1;max-width:84px;min-height:56px;border-radius:var(--r-m);font-size:var(--t-cap);font-weight:500;color:var(--text-2)}
 .tool svg{color:var(--text)}
 .tool:active,.tool.on{background:var(--fill)}
 .tool.danger,.tool.danger svg{color:var(--danger)}
@@ -752,7 +752,7 @@ const hapLabel = (() => { const l = document.createElement('label'), i = documen
 function tick(){ try { if (navigator.vibrate) navigator.vibrate(6); else hapLabel.click(); } catch {} }
 function tickOnStep(input){ if (input._last !== input.value) { if (input._last !== undefined) tick(); input._last = input.value; } }
 // Home-screen web apps keep running an old copy; check for a newer deploy whenever the app comes back to the front.
-const BUILD = '20261123-4';
+const BUILD = '20261123-5';
 let liveBuild = '';
 async function checkUpdate(){
   try {
