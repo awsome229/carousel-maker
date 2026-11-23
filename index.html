@@ -57,8 +57,8 @@ canvas#cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;dis
 #empty[hidden]{display:none}
 #empty p{margin:0;color:var(--text-2);max-width:26em}
 
-nav#tray{background:var(--surface);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border-top:1px solid var(--hair);padding:6px 8px calc(6px + env(safe-area-inset-bottom));display:flex;justify-content:space-around;align-items:center;min-height:72px;position:relative;z-index:3}
-.tool{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;flex:1;max-width:84px;min-height:56px;border-radius:var(--r-m);font-size:var(--t-cap);font-weight:500;color:var(--text-2)}
+nav#tray{background:var(--surface);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border-top:1px solid var(--hair);padding:4px 8px max(4px, calc(env(safe-area-inset-bottom) - 10px));display:flex;justify-content:space-around;align-items:center;min-height:56px;position:relative;z-index:3}
+.tool{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;flex:1;max-width:84px;min-height:48px;border-radius:var(--r-m);font-size:var(--t-cap);font-weight:500;color:var(--text-2)}
 .tool svg{color:var(--text)}
 .tool:active,.tool.on{background:var(--fill)}
 .tool.danger,.tool.danger svg{color:var(--danger)}
@@ -752,7 +752,7 @@ const hapLabel = (() => { const l = document.createElement('label'), i = documen
 function tick(){ try { if (navigator.vibrate) navigator.vibrate(6); else hapLabel.click(); } catch {} }
 function tickOnStep(input){ if (input._last !== input.value) { if (input._last !== undefined) tick(); input._last = input.value; } }
 // Home-screen web apps keep running an old copy; check for a newer deploy whenever the app comes back to the front.
-const BUILD = '20261123-2';
+const BUILD = '20261123-3';
 let liveBuild = '';
 async function checkUpdate(){
   try {
