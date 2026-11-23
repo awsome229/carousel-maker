@@ -88,7 +88,7 @@ textarea{width:100%;font:inherit;font-size:16px;border:1px solid var(--line);bor
 .count{position:absolute;margin:10px;right:0;background:rgba(0,0,0,.6);color:#fff;font-size:12px;border-radius:10px;padding:2px 8px}
 #toast{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top));transform:translate(-50%,-20px);background:var(--ink);color:#fff;padding:9px 14px;border-radius:12px;font-size:13px;font-weight:600;opacity:0;transition:.2s;pointer-events:none;z-index:20;max-width:90vw;text-align:center}
 #toast.show{opacity:1;transform:translate(-50%,0)}
-#vids{position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;left:0;top:0}
+#vids{position:fixed;width:2px;height:2px;opacity:.01;pointer-events:none;overflow:hidden;left:0;top:0}
 @media (max-width:520px){.logo{display:none}.ratios button{padding:6px 9px}header .primary{padding:9px 12px}}
 </style>
 </head>
@@ -145,6 +145,10 @@ const W = () => RATIOS[S.ratio][0], H = () => RATIOS[S.ratio][1];
 let sel = null, cropMode = false, view = {x:0, y:0, z:.3}, guides = [], dirty = true, exporting = false;
 let dpr = 1, SW = 0, SH = 0, fitted = false;
 const getSel = () => S.items.find(i => i.id === sel) || null;
+const frameOverride = new Map(); // mediaId -> exact decoded frame, used during export
+let MB; const lib = () => MB ||= import('./vendor/mediabunny.min.mjs'); // video decode/encode, loaded only when needed
+// Live <video> when it has a frame; otherwise a decoded poster (iOS often won't play hidden muted videos).
+const srcOf = m => frameOverride.get(m.id) || (m.kind !== 'video' ? m.el : m.el.readyState >= 2 ? m.el : m.poster);
 
 /* ---------- history ---------- */
 let hist = [], fut = [], lastSaved = JSON.stringify(S);
@@ -225,11 +229,12 @@ function drawItem(ctx, it, alpha = 1){
   } else {
     const m = media.get(it.mediaId), w = it.w, h = it.h;
     rrect(ctx, -w / 2, -h / 2, w, h, it.radius);
-    if (!m || (m.kind === 'video' && m.el.readyState < 2)) { ctx.fillStyle = '#d8d5ce'; ctx.fill(); }
+    const src = m && srcOf(m);
+    if (!src) { ctx.fillStyle = '#d8d5ce'; ctx.fill(); }
     else {
       ctx.save(); ctx.clip();
       const c = cover(m.w, m.h, w, h, it.fx, it.fy, it.zoom);
-      ctx.drawImage(m.el, -w / 2 + c.dx, -h / 2 + c.dy, c.dw, c.dh);
+      ctx.drawImage(src,-w / 2 + c.dx, -h / 2 + c.dy, c.dw, c.dh);
       ctx.restore();
     }
     if (it.borderW > 0) { // inner border: double-width stroke clipped to the shape
@@ -274,7 +279,8 @@ function render(){
     ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(it.rot);
     if (cropMode && it.type !== 'text') {
       const m = media.get(it.mediaId), c = cover(m.w, m.h, it.w, it.h, it.fx, it.fy, it.zoom);
-      ctx.globalAlpha = .35; ctx.drawImage(m.el, -it.w / 2 + c.dx, -it.h / 2 + c.dy, c.dw, c.dh); ctx.globalAlpha = 1;
+      if (srcOf(m)) { ctx.globalAlpha = .35; ctx.drawImage(srcOf(m), -it.w / 2 + c.dx, -it.h / 2 + c.dy, c.dw, c.dh); }
+      ctx.globalAlpha = 1;
       ctx.strokeStyle = '#fff'; ctx.lineWidth = px; ctx.strokeRect(-it.w / 2 + c.dx, -it.h / 2 + c.dy, c.dw, c.dh);
     }
     ctx.restore();
@@ -347,6 +353,7 @@ function pinchInfo(){
 }
 cv.addEventListener('pointerdown', e => {
   cv.setPointerCapture(e.pointerId);
+  for (const m of media.values()) if (m.kind === 'video' && m.el.paused && !exporting) m.el.play().catch(() => {}); // a tap counts as permission to play on iOS
   const [px, py] = pos(e); ptrs.set(e.pointerId, {x:px, y:py});
   if (ptrs.size === 2) { const it = getSel(); g = {t:'pinch', p0:pinchInfo(), it0: it ? {...it} : null, v0:{...view}}; return; }
   if (ptrs.size > 2) return;
@@ -427,11 +434,27 @@ cv.addEventListener('wheel', e => {
 }, {passive:false});
 document.addEventListener('gesturestart', e => e.preventDefault());
 
-function moveSnap(it, nx, ny){
-  const {ex, ey} = ext(it), th = 10 / view.z, w = W(), h = H();
-  const xs = [], ys = [0, h / 2, h];
+// Snap targets: slide edges/centres, other items' edges (repeated at the same spot on every slide), and their sizes.
+function snapTargets(it){
+  const w = W(), h = H(), xs = [], ys = [0, h / 2, h], ws = [], hs = [];
   for (let k = 0; k <= S.slides; k++) xs.push(k * w);
   for (let k = 0; k < S.slides; k++) xs.push(k * w + w / 2);
+  for (const o of S.items) {
+    if (o.id === it.id) continue;
+    const {ex, ey} = ext(o), s = clamp(Math.floor(o.x / w), 0, S.slides - 1);
+    for (const e of [o.x - ex, o.x, o.x + ex]) for (let k = 0; k < S.slides; k++) xs.push(e + (k - s) * w);
+    ys.push(o.y - ey, o.y, o.y + ey); ws.push(2 * ex); hs.push(2 * ey);
+  }
+  return {xs, ys, ws, hs};
+}
+function edgeSnap(a, dir, len, pos, sizes, th){ // a = fixed edge, dir = which way the moving edge goes
+  let best = null; const edge = a + dir * len;
+  for (const t of pos) { const l = (t - a) * dir, d = Math.abs(t - edge); if (l >= 40 && d < th && (!best || d < best.d)) best = {len:l, d}; }
+  for (const s of sizes) { const d = Math.abs(s - len); if (d < th && (!best || d < best.d)) best = {len:s, d}; }
+  return best;
+}
+function moveSnap(it, nx, ny){
+  const {ex, ey} = ext(it), th = 10 / view.z, {xs, ys} = snapTargets(it);
   guides = [];
   const snap = (v, e, targets, key) => {
     let best = null;
@@ -449,12 +472,27 @@ function resizeBy(it, i0, hd, wx, wy){
   const A = toWorld(i0, -hx * i0.w / 2, -hy * i0.h / 2); // opposite corner/edge stays put
   const cs = Math.cos(-i0.rot), sn = Math.sin(-i0.rot), vx = wx - A[0], vy = wy - A[1];
   const dx = vx * cs - vy * sn, dy = vx * sn + vy * cs;
+  let w = i0.w, h = i0.h;
   if (hx && hy) {
     const k = Math.max(40 / Math.min(i0.w, i0.h), (dx * hx * i0.w + dy * hy * i0.h) / (i0.w * i0.w + i0.h * i0.h));
-    it.w = i0.w * k; it.h = i0.h * k; if (it.type === 'text') it.size = i0.size * k;
-  } else if (hx) it.w = Math.max(40, dx * hx);
-  else it.h = Math.max(40, dy * hy);
-  if (it.type === 'text') layoutText(it);
+    w = i0.w * k; h = i0.h * k;
+  } else if (hx) w = Math.max(40, dx * hx);
+  else h = Math.max(40, dy * hy);
+  guides = [];
+  if (!i0.rot) { // snap the moving edge to slide lines, other items' edges, or another item's exact size
+    const T = snapTargets(it), th = 10 / view.z;
+    const sx = hx ? edgeSnap(A[0], hx, w, T.xs, T.ws, th) : null;
+    const sy = hy && it.type !== 'text' ? edgeSnap(A[1], hy, h, T.ys, T.hs, th) : null;
+    if (hx && hy) {
+      const p = sx && (!sy || sx.d <= sy.d) ? sx : sy;
+      if (p) { const k = p === sx ? sx.len / i0.w : sy.len / i0.h; w = i0.w * k; h = i0.h * k; guides.push(p === sx ? {x:A[0] + hx * w} : {y:A[1] + hy * h}); }
+    } else {
+      if (sx) { w = sx.len; guides.push({x:A[0] + hx * w}); }
+      if (sy) { h = sy.len; guides.push({y:A[1] + hy * h}); }
+    }
+  }
+  it.w = w;
+  if (it.type === 'text') { if (hx && hy) it.size = i0.size * w / i0.w; layoutText(it); } else it.h = h;
   const c = Math.cos(i0.rot), s = Math.sin(i0.rot), ox = hx * it.w / 2, oy = hy * (hx && !hy ? 0 : it.h / 2);
   it.x = A[0] + ox * c - oy * s; it.y = A[1] + ox * s + oy * c;
 }
@@ -467,8 +505,8 @@ function loadMedia(f){
       const v = document.createElement('video');
       v.muted = true; v.loop = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto';
       v.onloadedmetadata = () => {
-        const m = {id, kind:'video', el:v, w:v.videoWidth || 1080, h:v.videoHeight || 1920, dur: isFinite(v.duration) ? v.duration : 10};
-        media.set(id, m); v.play().catch(() => {}); res(m);
+        const m = {id, kind:'video', el:v, file:f, w:v.videoWidth || 1080, h:v.videoHeight || 1920, dur: isFinite(v.duration) ? v.duration : 10};
+        media.set(id, m); v.play().catch(() => {}); makePoster(m); res(m);
       };
       v.onerror = rej; $('#vids').append(v); v.src = url;
     } else {
@@ -478,12 +516,31 @@ function loadMedia(f){
     }
   });
 }
+async function videoInput(m){
+  if (!m.input) {
+    const M = await lib();
+    m.input = new M.Input({source:new M.BlobSource(m.file), formats:M.ALL_FORMATS});
+    m.vtrack = await m.input.getPrimaryVideoTrack(); m.atrack = await m.input.getPrimaryAudioTrack();
+    m.t0 = m.vtrack ? await m.vtrack.getFirstTimestamp() : 0;
+    if (m.vtrack) m.dur = (await m.vtrack.computeDuration()) - m.t0; // exact loop length
+  }
+  return m;
+}
+async function makePoster(m){
+  try {
+    await videoInput(m); if (!m.vtrack) return;
+    const M = await lib(), r = await new M.CanvasSink(m.vtrack, {width: Math.min(1080, m.vtrack.displayWidth)}).getCanvas(m.t0);
+    if (r) { m.poster = r.canvas; dirty = true; }
+  } catch (e) { console.warn('poster frame failed', e); }
+}
 function firstEmptySlide(){
   for (let s = 0; s < S.slides; s++) if (!S.items.some(it => inSlide(it, s))) return s;
   return S.slides;
 }
 async function addFiles(files){
   let slot = firstEmptySlide(), first = null;
+  const nv = [...files].filter(f => f.type.startsWith('video')).length;
+  if (nv) toast(`Loading ${nv} video${nv > 1 ? 's' : ''}…`);
   for (const f of [...files]) {
     const m = await loadMedia(f).catch(() => null);
     if (!m) { toast(`Couldn't open ${f.name}`); continue; }
@@ -719,9 +776,9 @@ function openExport(){
     <p class="sub">${S.slides} slides · ${S.ratio} · ${w} × ${h} px each</p>
     <ul class="plan">${p.slides.map(s => `<li>${s.i + 1} · ${s.vids.length ? 'Video' : 'Photo'}</li>`).join('')}</ul>
     <p class="note">${w} px wide is the largest Instagram keeps for feed posts — bigger files just get downscaled, so every slide is rendered at exactly ${w} × ${h}. Photos save as high-quality JPG.
-    ${nv ? `<br><br>${nv} slide${nv > 1 ? 's have' : ' has'} video → MP4 at ${FPS} fps, ${p.dur.toFixed(1)} s (longest clip${p.dur >= MAX_VIDEO_S ? ', capped at Instagram’s 60 s' : ''}; shorter clips loop). Video renders in real time — keep this screen open.` : ''}
-    ${nv && mime && !mime.includes('mp4') ? '<br><br><b>This browser can only record WebM, which Instagram won’t accept.</b> Use Safari on iPhone/Mac or a recent Chrome.' : ''}
-    ${nv && !mime ? '<br><br><b>This browser can’t record video.</b> Video slides will be skipped.' : ''}</p>
+    ${nv ? `<br><br>${nv} slide${nv > 1 ? 's have' : ' has'} video → MP4 at ${FPS} fps, ${p.dur.toFixed(1)} s (longest clip${p.dur >= MAX_VIDEO_S ? ', capped at Instagram’s 60 s' : ''}; shorter clips loop). Video is rendered frame by frame so it stays smooth — it may take a little while, keep this screen open.` : ''}
+    ${nv && !window.VideoEncoder && mime && !mime.includes('mp4') ?'<br><br><b>This browser can only record WebM, which Instagram won’t accept.</b> Use Safari on iPhone/Mac or a recent Chrome.' : ''}
+    ${nv && !window.VideoEncoder && !mime ?'<br><br><b>This browser can’t record video.</b> Video slides will be skipped.' : ''}</p>
     <div class="prog" hidden><div></div></div><p class="sub" id="pstat"></p>
     <div class="results" id="res"></div>
     <div class="btns" id="ebtns"><button class="ghost" id="ecancel">Close</button><button class="primary" id="ego">Export ${S.slides} file${S.slides > 1 ? 's' : ''}</button></div></div>`;
@@ -745,12 +802,75 @@ async function runExport(){
     out[s.i] = {name:`slide-${pad(s.i + 1)}.jpg`, blob: await toBlob(c, 'image/jpeg', .95)};
     setP(out.filter(Boolean).length / S.slides * (vidSlides.length ? .1 : 1));
   }
-  if (vidSlides.length && mime) await exportVideos(vidSlides, p.dur, w, h, mime, out, f => { setP(.1 + f * .9); stat.textContent = `Recording video… ${Math.round(f * 100)}%`; });
+  const vprog = f => { setP(.1 + f * .9); stat.textContent = `Rendering video… ${Math.round(f * 100)}%`; };
+  if (vidSlides.length) {
+    const wc = window.VideoEncoder && await lib().then(M => M.canEncodeVideo('avc', {width:w, height:h})).catch(() => false);
+    if (wc) await exportVideosFrames(vidSlides, p.dur, w, h, out, vprog);
+    else if (mime) await exportVideos(vidSlides, p.dur, w, h, mime, out, vprog); // old browsers: real-time recording
+  }
   exporting = false; setP(1); dirty = true;
   showResults(out.filter(Boolean));
 }
 
 const audioSrc = new Map(); let actx = null;
+// Frame-by-frame export: decode each source frame exactly, draw, encode. Not real-time, so no dropped frames or loop gaps.
+async function exportVideosFrames(slides, dur, w, h, out, progress){
+  const M = await lib(), nF = Math.max(1, Math.round(dur * FPS)), BATCH = 4; // shortcut: 4 encoders at once to spare phone memory; raise if fine on device
+  const aacOk = await M.canEncodeAudio('aac', {numberOfChannels:2, sampleRate:48000}).catch(() => false);
+  let warned = false, done = 0;
+  for (let b = 0; b < slides.length; b += BATCH) {
+    const batch = slides.slice(b, b + BATCH), iters = new Map();
+    const ms = [...new Set(batch.flatMap(s => s.vids.map(v => v.mediaId)))].map(id => media.get(id));
+    for (const m of ms) {
+      await videoInput(m);
+      if (!m.vtrack) continue;
+      // decode only as large as the biggest place this clip is drawn (a 4K clip in a 1080 slide needn't stay 4K)
+      const need = Math.max(...S.items.filter(i => i.mediaId === m.id).map(i => cover(m.w, m.h, i.w, i.h, .5, .5, i.zoom).dw));
+      const sink = new M.CanvasSink(m.vtrack, {width: Math.min(m.vtrack.displayWidth, Math.ceil(need / 2) * 2), poolSize:2});
+      const md = m.dur || dur;
+      iters.set(m.id, sink.canvasesAtTimestamps((function*(){ for (let n = 0; n < nF; n++) yield m.t0 + (n / FPS) % md; })()));
+    }
+    const encs = [];
+    for (const s of batch) {
+      const c = mkCanvas(w, h), ctx = c.getContext('2d');
+      const output = new M.Output({format:new M.Mp4OutputFormat({fastStart:'in-memory'}), target:new M.BufferTarget()});
+      const vs = new M.CanvasSource(c, {codec:'avc', bitrate:16e6, keyFrameInterval:1});
+      output.addVideoTrack(vs);
+      let audio = null;
+      const sounding = [...new Set(s.vids.filter(v => !v.muted).map(v => media.get(v.mediaId)))].filter(m => m.atrack);
+      if (sounding.length && aacOk) { audio = new M.AudioBufferSource({codec:'aac', bitrate:192e3}); output.addAudioTrack(audio); audio.buf = await mixAudio(M, sounding, dur); }
+      else if (sounding.length && !warned) { warned = true; toast('This browser can’t encode audio — videos exported without sound'); }
+      await output.start();
+      encs.push({s, ctx, output, vs, audio});
+    }
+    for (let n = 0; n < nF; n++) {
+      for (const [id, it] of iters) { const r = (await it.next()).value; if (r) frameOverride.set(id, r.canvas); }
+      for (const e of encs) { renderSlide(e.ctx, e.s.i, 1); await e.vs.add(n / FPS, 1 / FPS); }
+      progress((done + (n + 1) / nF * batch.length) / slides.length);
+    }
+    for (const it of iters.values()) await it.return();
+    for (const e of encs) {
+      if (e.audio) await e.audio.add(e.audio.buf);
+      await e.output.finalize();
+      out[e.s.i] = {name:`slide-${pad(e.s.i + 1)}.mp4`, blob:new Blob([e.output.target.buffer], {type:'video/mp4'})};
+    }
+    done += batch.length; frameOverride.clear();
+  }
+}
+async function mixAudio(M, ms, dur){
+  const rate = 48000, OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  const ctx = new OAC(2, Math.ceil(dur * rate), rate);
+  for (const m of ms) {
+    if (!m.achunks) { m.achunks = []; for await (const b of new M.AudioBufferSink(m.atrack).buffers()) m.achunks.push({t:b.timestamp - m.t0, buf:b.buffer}); }
+    const md = m.dur || dur;
+    for (let k = 0; k * md < dur; k++) for (const c of m.achunks) {
+      if (c.t < 0 || c.t >= md || k * md + c.t >= dur) continue;
+      const src = ctx.createBufferSource(); src.buffer = c.buf; src.connect(ctx.destination);
+      src.start(k * md + c.t); src.stop((k + 1) * md); // cut at the loop point so loops don't overlap
+    }
+  }
+  return ctx.startRendering();
+}
 async function exportVideos(slides, dur, w, h, mime, out, progress){
   const vids = [...new Set(slides.flatMap(s => s.vids.map(v => media.get(v.mediaId))))];
   try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); await actx.resume(); } catch { actx = null; }
@@ -810,6 +930,7 @@ function selfTest(){
   a(Math.abs(lx - 90) < 1e-6 && Math.abs(ly) < 1e-6, 'toLocal');
   const [wx, wy] = toWorld(it, lx, ly); a(Math.abs(wx - 100) < 1e-6 && Math.abs(wy - 190) < 1e-6, 'toWorld round-trip');
   const box = {x:1080, y:600, w:400, h:400, rot:0}; a(inSlide(box, 0) && inSlide(box, 1) && !inSlide(box, 2), 'seam spans two slides');
+  a(edgeSnap(0, 1, 1075, [1080], [], 10).len === 1080 && edgeSnap(100, -1, 500, [], [505], 10).len === 505 && !edgeSnap(0, 1, 900, [1080], [], 10), 'edge/size snapping');
   console.log('selftest ok'); return 'ok';
 }
 if (location.hash === '#test') selfTest();
