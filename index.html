@@ -106,9 +106,15 @@ textarea{width:100%;font:inherit;font-size:17px;color:var(--text);background:var
 .panel .cap{margin:4px 0 0;font-size:var(--t-body)}
 .thumbs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:18px -16px 0;padding:0 16px}
 .thumbs::-webkit-scrollbar{display:none}
-.thumbs > *{flex:none;width:92px;border-radius:var(--r-s);overflow:hidden;background:var(--fill);position:relative;display:block}
+.thumbs:not(.strip) > *{flex:none;width:92px;border-radius:var(--r-s);overflow:hidden;background:var(--fill);position:relative;display:block}
 .thumbs canvas,.thumbs img,.thumbs video{width:100%;display:block}
 .thumbs span{position:absolute;left:6px;bottom:6px;background:rgba(0,0,0,.6);color:#fff;border-radius:6px;padding:1px 6px;font-size:var(--t-cap);font-variant-numeric:tabular-nums}
+.strip{margin-top:0;padding:5px 16px}
+.strip button{flex:none;width:64px;border-radius:var(--r-s);overflow:hidden;position:relative;background:var(--fill);display:block}
+.strip button[aria-pressed=true]{box-shadow:0 0 0 2px var(--ground),0 0 0 4px var(--sel)}
+.strip-actions .btn{flex:1;padding:0 8px;font-size:var(--t-body)}
+.strip-actions .btn.icon{flex:0 0 44px;background:var(--fill)}
+.btn.danger{color:var(--danger)}
 .warn{margin:14px 0 0;color:var(--danger)}
 .prog{height:4px;background:var(--fill);border-radius:2px;overflow:hidden;margin:18px 0 6px}
 .prog div{height:100%;background:var(--acc);transform:scaleX(0);transform-origin:left;transition:transform .2s linear}
@@ -232,6 +238,29 @@ const world = (px, py) => [view.x + px / view.z, view.y + py / view.z];
 
 /* ---------- text ---------- */
 const mctx = document.createElement('canvas').getContext('2d');
+// Wide colour: iPhone photos are Display P3; a P3 canvas keeps their reds/greens that sRGB clips. Photos only: video stays sRGB.
+const P3 = (() => { try { return document.createElement('canvas').getContext('2d', {colorSpace:'display-p3'}).getContextAttributes().colorSpace === 'display-p3'; } catch { return false; } })();
+const ctx2d = c => c.getContext('2d', P3 ? {colorSpace:'display-p3'} : undefined);
+// Guides (editor only, never exported). Grid crop: Instagram's profile grid shows posts cropped to 3:4 from the centre.
+const GUIDE = {mode:'off'};
+try { Object.assign(GUIDE, JSON.parse(localStorage.getItem('seam.guides') || '{}')); } catch {}
+function drawGuides(ctx, px){
+  const w = W(), h = H(), lines = [];
+  for (let k = 0; k < S.slides; k++) {
+    const x0 = k * w;
+    if (GUIDE.mode === 'centre') lines.push([x0 + w / 2, 0, x0 + w / 2, h], [x0, h / 2, x0 + w, h / 2]);
+    if (GUIDE.mode === 'thirds') for (const f of [1 / 3, 2 / 3]) lines.push([x0 + w * f, 0, x0 + w * f, h], [x0, h * f, x0 + w, h * f]);
+  }
+  if (GUIDE.mode === 'grid') { const gw = Math.min(w, h * 3 / 4), gh = Math.min(h, w * 4 / 3), gx = (w - gw) / 2, gy = (h - gh) / 2;
+    lines.push([gx, gy, gx + gw, gy], [gx + gw, gy, gx + gw, gy + gh], [gx + gw, gy + gh, gx, gy + gh], [gx, gy + gh, gx, gy]); }
+  ctx.save(); ctx.setLineDash(GUIDE.mode === 'grid' ? [8 * px, 6 * px] : []);
+  for (const [stroke, lw] of [['rgba(0,0,0,.35)', 3 * px], ['rgba(255,255,255,.8)', 1 * px]]) { // dark under light: visible on any photo
+    ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.beginPath();
+    for (const [a, b, c, d] of lines) { ctx.moveTo(a, b); ctx.lineTo(c, d); } ctx.stroke();
+  }
+  ctx.restore();
+}
+
 const fontOf = it => `${it.weight} ${it.size}px ${FONTS[it.font] || FONTS.Sans}`;
 function layoutText(it){
   mctx.font = fontOf(it);
@@ -302,7 +331,7 @@ function handles(it){
   return list;
 }
 function render(){
-  const ctx = cv.getContext('2d');
+  const ctx = ctx2d(cv);
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#1c1d1f'; ctx.fillRect(0, 0, cv.width, cv.height);
   const z = view.z * dpr, px = 1 / view.z, w = W(), h = H(), tw = S.slides * w;
   ctx.setTransform(z, 0, 0, z, -view.x * z, -view.y * z);
@@ -344,6 +373,7 @@ function render(){
     }
     ctx.restore();
   }
+  if (GUIDE.mode !== 'off') drawGuides(ctx, px);
   ctx.save(); ctx.strokeStyle = '#ff4fa3'; ctx.lineWidth = 1.5 * px;
   for (const g of guides) { ctx.beginPath(); if ('x' in g) { ctx.moveTo(g.x, -30 * px); ctx.lineTo(g.x, h + 30 * px); } else { ctx.moveTo(-30 * px, g.y); ctx.lineTo(tw + 30 * px, g.y); } ctx.stroke(); }
   ctx.restore();
@@ -663,7 +693,7 @@ function act(name){
   if (name === 'media') return $('#file').click();
   if (name === 'text') return addText();
   if (name === 'bg') return sheetBg();
-  if (name === 'slides') return sheetSlides();
+  if (name === 'slides') { slideSel = curSlide(); return sheetSlides(); }
   if (name === 'border') return sheetBorder();
   if (name === 'more') return sheetMore();
   if (!it) return;
@@ -752,7 +782,7 @@ const hapLabel = (() => { const l = document.createElement('label'), i = documen
 function tick(){ try { if (navigator.vibrate) navigator.vibrate(6); else hapLabel.click(); } catch {} }
 function tickOnStep(input){ if (input._last !== input.value) { if (input._last !== undefined) tick(); input._last = input.value; } }
 // Home-screen web apps keep running an old copy; check for a newer deploy whenever the app comes back to the front.
-const BUILD = '20261123-10';
+const BUILD = '20261123-11';
 let liveBuild = '';
 async function checkUpdate(){
   try {
@@ -823,9 +853,36 @@ function sheetBorder(){
   $('#bthick').onchange = () => { commit(); refresh(); };
 }
 const saveBorder = () => { try { localStorage.setItem('seam.border', JSON.stringify(BORDER)); } catch {} };
+// Slide operations move whatever sits on a slide (by its centre) along with it.
+let slideSel = 0;
+function moveSlides(map){ for (const it of S.items) { const s = slideOf(it), t = map(s); if (t !== s) it.x += (t - s) * W(); } }
+function slideOp(op){
+  const i = slideSel, n = S.slides;
+  if (op === 'left' && i > 0) { moveSlides(s => s === i ? i - 1 : s === i - 1 ? i : s); slideSel--; }
+  else if (op === 'right' && i < n - 1) { moveSlides(s => s === i ? i + 1 : s === i + 1 ? i : s); slideSel++; }
+  else if ((op === 'dup' || op === 'add') && n >= MAX_SLIDES) return toast('Instagram allows up to 20 slides');
+  else if (op === 'dup') { const copies = S.items.filter(it => slideOf(it) === i).map(it => ({...it, id:uid(), x:it.x + W()}));
+    moveSlides(s => s > i ? s + 1 : s); S.items.push(...copies); S.slides++; slideSel++; }
+  else if (op === 'add') { moveSlides(s => s > i ? s + 1 : s); S.slides++; slideSel++; }
+  else if (op === 'del') { if (n <= 1) return toast('A carousel needs at least one slide');
+    S.items = S.items.filter(it => slideOf(it) !== i); moveSlides(s => s > i ? s - 1 : s); S.slides--; slideSel = Math.min(i, S.slides - 1); sel = null; }
+  else return;
+  tick(); commit(); updUI(); fit(slideSel); refresh();
+}
 function sheetSlides(){
-  openSheet(sheetSlides, 'Slides', `<div class="row" style="justify-content:center"><div class="stepper"><button class="btn quiet" data-slides="-1" aria-label="Remove a slide">−</button><span>${S.slides}</span><button class="btn quiet" data-slides="1" aria-label="Add a slide">+</button></div></div>
-    <p class="cap" style="text-align:center">Instagram allows up to 20. Anything on a removed slide stays off the end and isn’t exported.</p>`);
+  slideSel = clamp(slideSel, 0, S.slides - 1);
+  const tw = 64, th = Math.round(tw * H() / W());
+  openSheet(sheetSlides, 'Slides', `<div class="thumbs strip" style="margin-top:0">${Array.from({length:S.slides}, (_, i) =>
+      `<button data-pick="${i}" aria-label="Slide ${i + 1}" aria-pressed="${i === slideSel}"><canvas width="${tw * 2}" height="${th * 2}" data-i="${i}"></canvas><span>${i + 1}</span></button>`).join('')}</div>
+    <div class="actions strip-actions">
+      <button class="btn quiet icon" data-slideop="left" aria-label="Move slide left"${slideSel ? '' : ' disabled'}><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <button class="btn quiet icon" data-slideop="right" aria-label="Move slide right"${slideSel < S.slides - 1 ? '' : ' disabled'}><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+      <button class="btn quiet" data-slideop="add">New</button><button class="btn quiet" data-slideop="dup">Duplicate</button>
+      <button class="btn quiet danger" data-slideop="del">Delete</button></div>
+    <p class="cap">${S.slides} of 20 slides. New and Duplicate go after slide ${slideSel + 1}.</p>
+    <div class="sec">Guides</div>${seg('guide', [['off','Off'],['centre','Centre'],['thirds','Thirds'],['grid','Grid crop']], GUIDE.mode, 'Guides')}
+    ${GUIDE.mode === 'grid' ? '<p class="cap">The dashed box is what your profile grid shows of each slide.</p>' : ''}`);
+  sheet.querySelectorAll('.strip canvas').forEach(c => renderSlide(ctx2d(c), +c.dataset.i, c.width / W()));
 }
 function sheetStyle(){
   const it = getSel(); if (!it) return;
@@ -871,7 +928,9 @@ sheet.addEventListener('click', e => {
   else if (d.sw) { ('bg' in d ? S.bg : it)[d.k] = d.sw; if (sheetFn === sheetBorder) S.bg.type = 'solid'; }
   else if (d.preset) Object.assign(S.bg, BG_PRESETS[+d.preset]);
   else if (d.bgtype) S.bg.type = d.bgtype;
-  else if (d.slides) { S.slides = clamp(S.slides + +d.slides, 1, MAX_SLIDES); fit(); }
+  else if (d.pick !== undefined) { slideSel = +d.pick; glideTo(slideSel); tick(); return refresh(); }
+  else if (d.slideop) return slideOp(d.slideop);
+  else if (d.guide) { GUIDE.mode = d.guide; try { localStorage.setItem('seam.guides', JSON.stringify(GUIDE)); } catch {} dirty = true; return refresh(); }
   else if (it && d.font) it.font = d.font;
   else if (it && d.weight) it.weight = +d.weight;
   else if (it && d.align) it.align = d.align;
@@ -892,7 +951,7 @@ function openPreview(){
   const car = $('#car'), cs = [...car.children];
   car.onscroll = () => { const i = Math.round(car.scrollLeft / car.clientWidth); $('#pvc').textContent = `${i + 1}/${S.slides}`; modal.querySelectorAll('.dots b').forEach((b, j) => b.classList.toggle('on', i === j)); };
   $('#pvx').onclick = closeModal;
-  (function pv(){ if (!pvOpen) return; cs.forEach(c => renderSlide(c.getContext('2d'), +c.dataset.i, c.width / W())); requestAnimationFrame(pv); })();
+  (function pv(){ if (!pvOpen) return; cs.forEach(c => renderSlide(ctx2d(c), +c.dataset.i, c.width / W())); requestAnimationFrame(pv); })();
 }
 function closeModal(){ if (exporting) return; pvOpen = false; modal.classList.remove('open'); modal.innerHTML = ''; }
 modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
@@ -921,7 +980,7 @@ function openExport(){
     <div class="prog" hidden><div></div></div><p class="cap" id="pstat"></p>
     <div class="actions" id="ebtns"><button class="btn" id="ego">Export</button></div></div>`;
   modal.classList.add('open');
-  modal.querySelectorAll('#res canvas').forEach(c => renderSlide(c.getContext('2d'), +c.dataset.i, c.width / w));
+  modal.querySelectorAll('#res canvas').forEach(c => renderSlide(ctx2d(c), +c.dataset.i, c.width / w));
   $('#ego').onclick = () => runExport().catch(err => { exporting = false; $('#pstat').textContent = 'Export stopped: ' + err.message; console.error(err); });
 }
 modal.addEventListener('click', e => { if (e.target.closest('[data-close]')) closeModal(); });
@@ -937,7 +996,7 @@ async function runExport(){
   const vidSlides = p.slides.filter(s => s.vids.length), mime = pickMime();
   for (const s of p.slides.filter(s => !s.vids.length)) {
     stat.textContent = `Exporting slide ${s.i + 1} of ${S.slides}`;
-    const c = mkCanvas(w, h); renderSlide(c.getContext('2d'), s.i, 1);
+    const c = mkCanvas(w, h); renderSlide(ctx2d(c), s.i, 1); // photo slides keep wide colour
     out[s.i] = {name:`slide-${pad(s.i + 1)}.jpg`, blob: await toBlob(c, 'image/jpeg', .95)};
     setP(out.filter(Boolean).length / S.slides * (vidSlides.length ? .1 : 1));
   }
