@@ -522,7 +522,11 @@ async function videoInput(m){
     m.input = new M.Input({source:new M.BlobSource(m.file), formats:M.ALL_FORMATS});
     m.vtrack = await m.input.getPrimaryVideoTrack(); m.atrack = await m.input.getPrimaryAudioTrack();
     m.t0 = m.vtrack ? await m.vtrack.getFirstTimestamp() : 0;
-    if (m.vtrack) m.dur = (await m.vtrack.computeDuration()) - m.t0; // exact loop length
+    if (m.vtrack) {
+      m.dur = (await m.vtrack.computeDuration()) - m.t0; // exact loop length
+      // phones record slightly variable rates (59.8, 29.97…), so round to whole fps; Instagram tops out at 60
+      m.fps = clamp(Math.round((await m.vtrack.computePacketStats(120)).averagePacketRate) || FPS, 1, 60);
+    }
   }
   return m;
 }
@@ -774,9 +778,9 @@ function openExport(){
   const [w, h] = RATIOS[S.ratio], p = exportPlan(), nv = p.slides.filter(s => s.vids.length).length, mime = pickMime();
   modal.innerHTML = `<div class="panel"><h2>Export carousel</h2>
     <p class="sub">${S.slides} slides · ${S.ratio} · ${w} × ${h} px each</p>
-    <ul class="plan">${p.slides.map(s => `<li>${s.i + 1} · ${s.vids.length ? 'Video' : 'Photo'}</li>`).join('')}</ul>
+    <ul class="plan">${p.slides.map(s => `<li>${s.i + 1} · ${s.vids.length ? `Video ${slideFps(s)} fps` : 'Photo'}</li>`).join('')}</ul>
     <p class="note">${w} px wide is the largest Instagram keeps for feed posts — bigger files just get downscaled, so every slide is rendered at exactly ${w} × ${h}. Photos save as high-quality JPG.
-    ${nv ? `<br><br>${nv} slide${nv > 1 ? 's have' : ' has'} video → MP4 at ${FPS} fps, ${p.dur.toFixed(1)} s (longest clip${p.dur >= MAX_VIDEO_S ? ', capped at Instagram’s 60 s' : ''}; shorter clips loop). Video is rendered frame by frame so it stays smooth — it may take a little while, keep this screen open.` : ''}
+    ${nv ? `<br><br>${nv} slide${nv > 1 ? 's have' : ' has'} video → MP4 at each clip’s own frame rate (up to 60 fps), ${p.dur.toFixed(1)} s (longest clip${p.dur >= MAX_VIDEO_S ? ', capped at Instagram’s 60 s' : ''}; shorter clips loop). Video is rendered frame by frame so it stays smooth — it may take a little while, keep this screen open.` : ''}
     ${nv && !window.VideoEncoder && mime && !mime.includes('mp4') ?'<br><br><b>This browser can only record WebM, which Instagram won’t accept.</b> Use Safari on iPhone/Mac or a recent Chrome.' : ''}
     ${nv && !window.VideoEncoder && !mime ?'<br><br><b>This browser can’t record video.</b> Video slides will be skipped.' : ''}</p>
     <div class="prog" hidden><div></div></div><p class="sub" id="pstat"></p>
@@ -815,11 +819,15 @@ async function runExport(){
 const audioSrc = new Map(); let actx = null;
 // Frame-by-frame export: decode each source frame exactly, draw, encode. Not real-time, so no dropped frames or loop gaps.
 async function exportVideosFrames(slides, dur, w, h, out, progress){
-  const M = await lib(), nF = Math.max(1, Math.round(dur * FPS)), BATCH = 4; // shortcut: 4 encoders at once to spare phone memory; raise if fine on device
+  const M = await lib(), BATCH = 4; // shortcut: 4 encoders at once to spare phone memory; raise if fine on device
   const aacOk = await M.canEncodeAudio('aac', {numberOfChannels:2, sampleRate:48000}).catch(() => false);
+  for (const s of slides) for (const v of s.vids) await videoInput(media.get(v.mediaId));
+  // each slide keeps its source frame rate (fastest clip on that slide); slides sharing a rate are rendered together
+  const groups = [];
+  for (const fps of [...new Set(slides.map(slideFps))]) { const g = slides.filter(s => slideFps(s) === fps); for (let b = 0; b < g.length; b += BATCH) groups.push({fps, batch:g.slice(b, b + BATCH)}); }
   let warned = false, done = 0;
-  for (let b = 0; b < slides.length; b += BATCH) {
-    const batch = slides.slice(b, b + BATCH), iters = new Map();
+  for (const {fps, batch} of groups) {
+    const nF = Math.max(1, Math.round(dur * fps)), iters = new Map();
     const ms = [...new Set(batch.flatMap(s => s.vids.map(v => v.mediaId)))].map(id => media.get(id));
     for (const m of ms) {
       await videoInput(m);
@@ -828,7 +836,7 @@ async function exportVideosFrames(slides, dur, w, h, out, progress){
       const need = Math.max(...S.items.filter(i => i.mediaId === m.id).map(i => cover(m.w, m.h, i.w, i.h, .5, .5, i.zoom).dw));
       const sink = new M.CanvasSink(m.vtrack, {width: Math.min(m.vtrack.displayWidth, Math.ceil(need / 2) * 2), poolSize:2});
       const md = m.dur || dur;
-      iters.set(m.id, sink.canvasesAtTimestamps((function*(){ for (let n = 0; n < nF; n++) yield m.t0 + (n / FPS) % md; })()));
+      iters.set(m.id, sink.canvasesAtTimestamps((function*(){ for (let n = 0; n < nF; n++) yield m.t0 + (n / fps) % md; })()));
     }
     const encs = [];
     for (const s of batch) {
@@ -845,7 +853,7 @@ async function exportVideosFrames(slides, dur, w, h, out, progress){
     }
     for (let n = 0; n < nF; n++) {
       for (const [id, it] of iters) { const r = (await it.next()).value; if (r) frameOverride.set(id, r.canvas); }
-      for (const e of encs) { renderSlide(e.ctx, e.s.i, 1); await e.vs.add(n / FPS, 1 / FPS); }
+      for (const e of encs) { renderSlide(e.ctx, e.s.i, 1); await e.vs.add(n / fps, 1 / fps); }
       progress((done + (n + 1) / nF * batch.length) / slides.length);
     }
     for (const it of iters.values()) await it.return();
@@ -857,6 +865,7 @@ async function exportVideosFrames(slides, dur, w, h, out, progress){
     done += batch.length; frameOverride.clear();
   }
 }
+const slideFps = s => Math.max(...s.vids.map(v => media.get(v.mediaId).fps || FPS));
 async function mixAudio(M, ms, dur){
   const rate = 48000, OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
   const ctx = new OAC(2, Math.ceil(dur * rate), rate);
