@@ -422,6 +422,8 @@ function endPtr(e){
       lastTap = {t:0, id:null};
     } else lastTap = {t:now, id: it ? it.id : null};
   }
+  const gi = getSel();
+  if (gi && g && ((g.moved && ['move','resize','rot'].includes(g.t)) || (g.t === 'pinch' && g.it0 && !cropMode))) delete gi.bp; // moved by hand: no longer follows the border slider
   if (g && g.t === 'pinch') g = ptrs.size ? null : g; // lifting one finger ends the pinch without jumping
   if (ptrs.size === 0) { g = null; guides = []; commit(); dirty = true; }
 }
@@ -564,7 +566,32 @@ function addText(){
     align:'center', x:s * W() + W() / 2, y:H() / 2, w:W() * .74, h:120, rot:0, opacity:1};
   layoutText(it); S.items.push(it); sel = it.id; commit(); updUI(); sheetText(true);
 }
-function frame(it, x, y, w, h){ Object.assign(it, {x:x + w / 2, y:y + h / 2, w, h, rot:0, fx:.5, fy:.5, zoom:1}); }
+function frame(it, x, y, w, h){ Object.assign(it, {x:x + w / 2, y:y + h / 2, w, h, rot:0, fx:.5, fy:.5, zoom:1}); delete it.bp; }
+
+/* ---------- border (even frame around each photo, like a % border app) ---------- */
+// Thickness is a % of the slide width (always 1080 px), so 3% = 32 px on every slide, every ratio, every post.
+const BORDER = Object.assign({v:3, unit:'%', mode:'fit'}, JSON.parse(localStorage.getItem('seam.border') || '{}'));
+const borderPx = () => BORDER.unit === 'px' ? BORDER.v : W() * BORDER.v / 100;
+function borderFrame(it, s){
+  const w = W(), h = H(), b = borderPx(), bw = w - 2 * b, bh = h - 2 * b, keep = {fx:it.fx, fy:it.fy, zoom:it.zoom};
+  if (BORDER.mode === 'fill') { frame(it, s * w + b, b, bw, bh); Object.assign(it, keep); } // exact even border, photo cropped to fit
+  else { // whole photo, border is exactly b on the tight sides
+    const m = media.get(it.mediaId), ar = m.w / m.h;
+    let fw = bw, fh = bw / ar; if (fh > bh) { fh = bh; fw = bh * ar; }
+    frame(it, s * w + (w - fw) / 2, (h - fh) / 2, fw, fh);
+  }
+  it.bp = 1;
+}
+const slideOf = it => clamp(Math.floor(it.x / W()), 0, S.slides - 1);
+function reborder(){ for (const it of S.items) if (it.bp) borderFrame(it, slideOf(it)); dirty = true; }
+function borderAll(){
+  const ms = S.items.filter(i => i.type !== 'text');
+  if (!ms.length) return toast('Add photos or videos first');
+  S.slides = clamp(ms.length, 1, MAX_SLIDES);
+  ms.slice(0, MAX_SLIDES).forEach((it, i) => borderFrame(it, i));
+  if (ms.length > MAX_SLIDES) toast('Only the first 20 fit — Instagram’s limit');
+  commit(); fit(); updUI(); refresh();
+}
 
 /* ---------- layouts ---------- */
 const LAYOUTS = {
@@ -596,6 +623,7 @@ function act(name){
   if (name === 'bg') return sheetBg();
   if (name === 'layout') return sheetLayouts();
   if (name === 'slides') return sheetSlides();
+  if (name === 'border') return sheetBorder();
   if (!it) return;
   if (name === 'crop') { cropMode = true; closeSheet(); }
   if (name === 'fill') { const s = clamp(Math.floor(it.x / W()), 0, S.slides - 1); frame(it, s * W(), 0, W(), H()); }
@@ -614,6 +642,7 @@ const IC = {
   text:'<path d="M5 7V5h14v2M12 5v14M9 19h6"/>',
   bg:'<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M3 15 15 3M9 21 21 9"/>',
   layout:'<rect x="3" y="4" width="8" height="16" rx="1.5"/><rect x="13" y="4" width="8" height="7" rx="1.5"/><rect x="13" y="13" width="8" height="7" rx="1.5"/>',
+  border:'<rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="10" height="10" rx="1"/>',
   slides:'<rect x="2" y="6" width="6" height="12" rx="1"/><rect x="9" y="6" width="6" height="12" rx="1"/><rect x="16" y="6" width="6" height="12" rx="1"/>',
   crop:'<path d="M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2"/>',
   fill:'<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>',
@@ -643,9 +672,9 @@ function updUI(){
     return;
   }
   let tools;
-  if (!it) tools = [['media','Media'],['text','Text'],['bg','Background'],['layout','Layouts'],['slides',`Slides · ${S.slides}`]];
+  if (!it) tools = [['media','Media'],['text','Text'],['bg','Background'],['border','Border'],['layout','Layouts'],['slides',`Slides · ${S.slides}`]];
   else if (it.type === 'text') tools = [['edit','Edit','style'],['up','Forward'],['down','Back'],['dup','Duplicate'],['del','Delete']];
-  else tools = [['crop','Crop'],['fill','Fill slide'],['style','Style'], ...(it.type === 'video' ? [[it.muted ? 'mute' : 'sound', it.muted ? 'Muted' : 'Sound', 'sound']] : []),
+  else tools = [['crop','Crop'],['border','Border'],['fill','Fill slide'],['style','Style'], ...(it.type === 'video' ? [[it.muted ? 'mute' : 'sound', it.muted ? 'Muted' : 'Sound', 'sound']] : []),
     ['up','Forward'],['down','Back'],['dup','Duplicate'],['del','Delete']];
   tray.innerHTML = tools.map(([icn, label, a]) => `<button class="tool${icn === 'del' ? ' danger' : ''}" data-a="${a || icn}">${ic(icn)}${label}</button>`).join('');
 }
@@ -653,7 +682,7 @@ tray.addEventListener('click', e => { const b = e.target.closest('[data-a]'); if
 document.querySelectorAll('.ratios button').forEach(b => b.onclick = () => {
   const k = RATIOS[b.dataset.r][1] / H(); S.ratio = b.dataset.r;
   for (const it of S.items) it.y *= k;
-  commit(); fit(); updUI();
+  reborder(); commit(); fit(); updUI();
 });
 $('#undo').onclick = () => undoRedo(hist, fut);
 $('#redo').onclick = () => undoRedo(fut, hist);
@@ -698,6 +727,21 @@ function sheetBg(){
     <div class="sec">${b.type === 'grad' ? 'Start colour' : 'Colour'}</div>${swatches('c1', b.c1, true)}
     ${b.type === 'grad' ? `<div class="sec">End colour</div>${swatches('c2', b.c2, true)}` : ''}`);
 }
+function sheetBorder(){
+  const it = getSel(), pct = BORDER.unit === '%', max = pct ? 20 : 200, step = pct ? .5 : 1, n = S.items.filter(i => i.bp).length;
+  openSheet(sheetBorder, 'Border', `
+    <div class="row" style="justify-content:space-between;margin-top:0"><b>Thickness</b>${chips('bunit', [['%','%'],['px','px']], BORDER.unit)}</div>
+    <div class="row"><input type="range" id="bthick" min="0" max="${max}" step="${step}" value="${Math.min(BORDER.v, max)}" aria-label="Border thickness" style="flex:1"><b id="bval" style="width:64px;text-align:right">${BORDER.v}${pct ? '%' : ' px'}</b></div>
+    <div class="chips">${(pct ? [1, 2, 3, 5, 8] : [16, 24, 32, 48, 64]).map(v => `<button class="chip${v === BORDER.v ? ' on' : ''}" data-bv="${v}">${v}${pct ? '%' : ''}</button>`).join('')}</div>
+    <p class="sub" style="margin:8px 0 0">${pct ? `${BORDER.v}% of the 1080 px slide width = ${Math.round(borderPx())} px on every side` : `${BORDER.v} px on every side of a 1080 px slide`}</p>
+    <div class="sec">Photo</div>${chips('bmode', [['fit','Fit — keep whole photo'],['fill','Fill — even border, crop photo']], BORDER.mode)}
+    <div class="sec">Border colour</div>${swatches('c1', S.bg.type === 'solid' ? S.bg.c1 : '#ffffff', true)}
+    <div class="btns" style="margin-top:16px">${it && it.type !== 'text' ? '<button class="ghost" data-bapply="one">This photo</button>' : ''}<button class="primary" data-bapply="all">All photos · one per slide</button></div>
+    ${n ? `<p class="sub" style="margin-top:8px">${n} photo${n > 1 ? 's' : ''} follow this slider. Dragging a photo by hand unlinks it.</p>` : ''}`);
+  $('#bthick').oninput = e => { BORDER.v = +e.target.value; $('#bval').textContent = BORDER.v + (BORDER.unit === '%' ? '%' : ' px'); saveBorder(); reborder(); };
+  $('#bthick').onchange = () => { commit(); refresh(); };
+}
+const saveBorder = () => localStorage.setItem('seam.border', JSON.stringify(BORDER));
 function sheetLayouts(){
   openSheet(sheetLayouts, 'Layouts', `<p class="sub" style="margin-top:0">Arranges your photos &amp; videos in the order you added them. Undo if you don’t like it.</p>
     <div class="layouts">${Object.entries(LAYOUTS).map(([k, l]) => `<button class="lay" data-layout="${k}"><i>${l.boxes.map(([x, y, w, h]) => `<b style="left:${x}%;top:${y}%;width:${w}%;height:${h}%"></b>`).join('')}</i>${l.name}<small>${l.note}</small></button>`).join('')}</div>`);
@@ -725,6 +769,7 @@ sheet.addEventListener('input', e => {
   const t = e.target, k = t.dataset.k; if (!k) return;
   const tgt = 'bg' in t.dataset ? S.bg : getSel(); if (!tgt) return;
   tgt[k] = t.type === 'range' ? +t.value : t.value;
+  if (tgt === S.bg && sheetFn === sheetBorder) S.bg.type = 'solid';
   if (tgt.type === 'text') layoutText(tgt);
   dirty = true;
 });
@@ -733,7 +778,12 @@ sheet.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const d = b.dataset, it = getSel();
   if (b.classList.contains('done')) return closeSheet();
-  if (d.sw) { ('bg' in d ? S.bg : it)[d.k] = d.sw; }
+  if (d.bunit) { BORDER.v = d.bunit === 'px' ? Math.round(borderPx()) : +(borderPx() / W() * 100).toFixed(1); BORDER.unit = d.bunit; saveBorder(); }
+  else if (d.bv) { BORDER.v = +d.bv; saveBorder(); reborder(); }
+  else if (d.bmode) { BORDER.mode = d.bmode; saveBorder(); reborder(); }
+  else if (d.bapply === 'all') return borderAll();
+  else if (d.bapply === 'one' && it) borderFrame(it, slideOf(it));
+  else if (d.sw) { ('bg' in d ? S.bg : it)[d.k] = d.sw; if (sheetFn === sheetBorder) S.bg.type = 'solid'; }
   else if (d.preset) Object.assign(S.bg, BG_PRESETS[+d.preset]);
   else if (d.bgtype) S.bg.type = d.bgtype;
   else if (d.layout) return applyLayout(d.layout);
