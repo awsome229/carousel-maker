@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f4f3ef">
+<title>Seam — carousel maker</title>
+<style>
+:root{--bg:#f4f3ef;--ink:#111;--mute:#8a877f;--line:#e4e2dc;--card:#fff;--acc:#1f6bff;--r:18px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;overscroll-behavior:none}
+body{display:flex;flex-direction:column;height:100dvh;overflow:hidden;user-select:none;-webkit-user-select:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+header{display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top)) 12px 8px}
+.logo{font-weight:800;letter-spacing:-.04em;font-size:20px;margin-right:4px}
+.icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center}
+.icon:disabled{opacity:.3;cursor:default}
+.ratios{display:flex;background:#e9e7e1;border-radius:12px;padding:3px;margin:0 auto}
+.ratios button{padding:6px 11px;border-radius:9px;font-weight:600;font-size:13px;color:#555}
+.ratios button[aria-pressed=true]{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.primary{background:var(--ink);color:#fff;border-radius:12px;padding:9px 16px;font-weight:650}
+.primary:disabled{opacity:.4}
+.ghost{background:#e9e7e1;border-radius:12px;padding:9px 14px;font-weight:600}
+main{flex:1;position:relative;min-height:0}
+canvas#cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+#hint{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);color:var(--mute);font-size:13px;pointer-events:none;white-space:nowrap}
+.zoom{position:absolute;right:12px;top:10px;display:flex;background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.zoom button{padding:7px 10px;font-weight:600;font-size:13px}
+nav#tray{background:var(--card);border-radius:var(--r) var(--r) 0 0;box-shadow:0 -2px 16px rgba(0,0,0,.06);padding:10px 8px calc(10px + env(safe-area-inset-bottom));display:flex;gap:2px;overflow-x:auto;justify-content:safe center;min-height:76px;align-items:center;position:relative;z-index:3}
+.tool{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:62px;padding:6px 4px;border-radius:12px;font-size:11px;font-weight:600;color:#333}
+.tool:active,.tool.on{background:#f0eee9}
+.tool.danger{color:#d9342b}
+.croprow{display:flex;align-items:center;gap:10px;width:100%;max-width:520px;padding:0 6px;font-size:13px;font-weight:600}
+.croprow input{flex:1}
+#sheet{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--card);border-radius:var(--r) var(--r) 0 0;box-shadow:0 -6px 30px rgba(0,0,0,.14);padding:0 16px calc(16px + env(safe-area-inset-bottom));max-height:62dvh;overflow:auto;transform:translateY(105%);transition:transform .22s ease}
+#sheet.open{transform:none}
+.sh-head{display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--card);padding:14px 0 10px;z-index:1}
+.sh-head b{font-size:16px}
+.sh-head .done{font-weight:700;color:var(--acc)}
+.sec{font-size:12px;font-weight:700;color:var(--mute);text-transform:uppercase;letter-spacing:.04em;margin:14px 0 8px}
+.row{display:flex;align-items:center;gap:12px;margin:10px 0}
+.row label{width:96px;font-size:13px;font-weight:600;color:#444;flex:none}
+.row input[type=range]{flex:1}
+input[type=range]{accent-color:var(--ink)}
+input[type=color]{width:40px;height:32px;border:0;padding:0;background:none;border-radius:8px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:7px 12px;border-radius:10px;background:#f0eee9;font-size:13px;font-weight:600}
+.chip.on{background:var(--ink);color:#fff}
+.sw{width:30px;height:30px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+.sw.on{outline:2px solid var(--acc);outline-offset:2px}
+textarea{width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:12px;padding:10px;resize:vertical;min-height:70px}
+.layouts{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.lay{background:#f0eee9;border-radius:14px;padding:10px;text-align:left;font-size:13px;font-weight:650}
+.lay small{display:block;font-weight:500;color:var(--mute);margin-top:2px}
+.lay i{display:block;height:46px;margin-bottom:8px;border-radius:8px;background:#fff;position:relative;overflow:hidden}
+.lay i b{position:absolute;background:#c9c4b8;border-radius:3px}
+.lay i::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(33.33% - 1px),rgba(0,0,0,.25) calc(33.33% - 1px) 33.33%)}
+.stepper{display:flex;align-items:center;gap:14px;font-size:22px;font-weight:700}
+.stepper button{width:44px;height:44px;border-radius:12px;background:#f0eee9;font-size:22px}
+.modal{position:fixed;inset:0;z-index:10;background:rgba(20,20,18,.55);display:none;align-items:center;justify-content:center;padding:16px}
+.modal.open{display:flex}
+.panel{background:var(--card);border-radius:22px;width:min(560px,100%);max-height:92dvh;overflow:auto;padding:18px}
+.panel h2{margin:0 0 2px;font-size:20px}
+.sub{color:var(--mute);margin:0 0 12px;font-size:13px}
+.note{font-size:12px;color:var(--mute);background:#f6f5f1;border-radius:12px;padding:10px 12px;margin:12px 0}
+.plan{display:flex;gap:6px;flex-wrap:wrap;margin:0;padding:0;list-style:none}
+.plan li{font-size:12px;font-weight:600;background:#f0eee9;border-radius:8px;padding:5px 8px}
+.prog{height:6px;background:#eee;border-radius:3px;overflow:hidden;margin:12px 0 6px}
+.prog div{height:100%;width:0;background:var(--ink);transition:width .2s}
+.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;margin:12px 0}
+.results a{display:block;border-radius:10px;overflow:hidden;background:#eee;position:relative;font-size:10px;color:#fff;text-decoration:none}
+.results img,.results video{width:100%;display:block}
+.results span{position:absolute;left:4px;bottom:4px;background:rgba(0,0,0,.55);border-radius:5px;padding:1px 5px}
+.btns{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.phone{background:#fff;border-radius:26px;width:min(400px,100%);overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.igbar{display:flex;align-items:center;gap:8px;padding:12px 14px;font-weight:650;font-size:14px}
+.igbar i{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#f6c445,#e94f37,#8e5bd8)}
+.igbar button{margin-left:auto}
+.car{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.car::-webkit-scrollbar{display:none}
+.car canvas{flex:0 0 100%;width:100%;scroll-snap-align:start;display:block}
+.dots{display:flex;justify-content:center;gap:4px;padding:10px 0 14px}
+.dots b{width:6px;height:6px;border-radius:50%;background:#d3d0c8}
+.dots b.on{background:var(--acc)}
+.count{position:absolute;margin:10px;right:0;background:rgba(0,0,0,.6);color:#fff;font-size:12px;border-radius:10px;padding:2px 8px}
+#toast{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top));transform:translate(-50%,-20px);background:var(--ink);color:#fff;padding:9px 14px;border-radius:12px;font-size:13px;font-weight:600;opacity:0;transition:.2s;pointer-events:none;z-index:20;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#vids{position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;left:0;top:0}
+@media (max-width:520px){.logo{display:none}.ratios button{padding:6px 9px}header .primary{padding:9px 12px}}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">seam</span>
+  <button class="icon" id="undo" aria-label="Undo"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+  <button class="icon" id="redo" aria-label="Redo"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5m5 5H10a6 6 0 0 0 0 12h3"/></svg></button>
+  <div class="ratios" role="group" aria-label="Post size">
+    <button data-r="1:1">1:1</button><button data-r="4:5">4:5</button><button data-r="3:4">3:4</button>
+  </div>
+  <button class="icon" id="previewBtn" aria-label="Preview"><svg viewBox="0 0 24 24"><path d="M7 5v14l12-7z"/></svg></button>
+  <button class="primary" id="exportBtn">Export</button>
+</header>
+<main id="stage">
+  <canvas id="cv" aria-label="Carousel canvas"></canvas>
+  <div class="zoom"><button id="zout" aria-label="Zoom out">−</button><button id="zfit">Fit</button><button id="zin" aria-label="Zoom in">+</button></div>
+  <div id="hint">Tap <b>Media</b> to add photos &amp; videos · drag across the dashed seams</div>
+</main>
+<nav id="tray"></nav>
+<div id="sheet" role="dialog" aria-modal="false"></div>
+<div class="modal" id="modal"></div>
+<div id="toast" role="status"></div>
+<div id="vids"></div>
+<input type="file" id="file" accept="image/*,video/*" multiple hidden>
+<script>
+'use strict';
+// Instagram feed max is 1080px wide; larger uploads get downscaled, so export exactly this.
+const RATIOS = {'1:1':[1080,1080],'4:5':[1080,1350],'3:4':[1080,1440]};
+const MAX_SLIDES = 20, MAX_VIDEO_S = 60, FPS = 30;
+const FONTS = {
+  Sans:'-apple-system,"Helvetica Neue",Arial,sans-serif',
+  Serif:'"New York",Georgia,"Times New Roman",serif',
+  Rounded:'ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold",sans-serif',
+  Condensed:'"Avenir Next Condensed","Arial Narrow",sans-serif',
+  Mono:'ui-monospace,Menlo,Consolas,monospace',
+  Hand:'"Marker Felt","Bradley Hand","Comic Sans MS",cursive'
+};
+const SWATCH = ['#111111','#ffffff','#f2ede4','#e94f37','#f6c445','#3c8d5f','#2f6fdf','#8e5bd8','#f08bb5'];
+const BG_PRESETS = [
+  {type:'solid',c1:'#ffffff',c2:'#ffffff'},{type:'solid',c1:'#111111',c2:'#111111'},{type:'solid',c1:'#f2ede4',c2:'#f2ede4'},
+  {type:'grad',c1:'#f6d5c0',c2:'#c3d3f2'},{type:'grad',c1:'#fdf2c4',c2:'#f4a4a4'},{type:'grad',c1:'#0f2027',c2:'#2c5364'},{type:'grad',c1:'#d4f1e4',c2:'#a6c1ee'}
+];
+
+const $ = s => document.querySelector(s);
+const cv = $('#cv'), stage = $('#stage'), tray = $('#tray'), sheet = $('#sheet'), modal = $('#modal');
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const pad = n => String(n).padStart(2, '0');
+
+let S = {ratio:'4:5', slides:3, bg:{type:'solid', c1:'#ffffff', c2:'#ffffff'}, items:[]};
+const media = new Map(); // mediaId -> {id, kind, el, w, h, dur}; kept forever so undo can restore deleted items
+const W = () => RATIOS[S.ratio][0], H = () => RATIOS[S.ratio][1];
+let sel = null, cropMode = false, view = {x:0, y:0, z:.3}, guides = [], dirty = true, exporting = false;
+let dpr = 1, SW = 0, SH = 0, fitted = false;
+const getSel = () => S.items.find(i => i.id === sel) || null;
+
+/* ---------- history ---------- */
+let hist = [], fut = [], lastSaved = JSON.stringify(S);
+function commit(){
+  const now = JSON.stringify(S);
+  if (now === lastSaved) return;
+  hist.push(lastSaved); if (hist.length > 80) hist.shift();
+  lastSaved = now; fut = []; updUI();
+}
+function undoRedo(from, to){
+  commit(); if (!from.length) return;
+  to.push(lastSaved); lastSaved = from.pop(); S = JSON.parse(lastSaved);
+  if (!getSel()) { sel = null; cropMode = false; }
+  closeSheet(false); updUI();
+}
+
+/* ---------- geometry ---------- */
+function cover(mw, mh, w, h, fx, fy, zoom){
+  const s = Math.max(w / mw, h / mh) * zoom, dw = mw * s, dh = mh * s;
+  return {dx:(w - dw) * fx, dy:(h - dh) * fy, dw, dh};
+}
+function toLocal(it, px, py){
+  const dx = px - it.x, dy = py - it.y, c = Math.cos(-it.rot), s = Math.sin(-it.rot);
+  return [dx * c - dy * s, dx * s + dy * c];
+}
+function toWorld(it, lx, ly){
+  const c = Math.cos(it.rot), s = Math.sin(it.rot);
+  return [it.x + lx * c - ly * s, it.y + lx * s + ly * c];
+}
+function ext(it){ // half extents of the rotated box
+  const c = Math.abs(Math.cos(it.rot)), s = Math.abs(Math.sin(it.rot));
+  return {ex: it.w / 2 * c + it.h / 2 * s, ey: it.w / 2 * s + it.h / 2 * c};
+}
+function inSlide(it, i){
+  const {ex, ey} = ext(it);
+  return it.x + ex > i * W() + 1 && it.x - ex < (i + 1) * W() - 1 && it.y + ey > 0 && it.y - ey < H();
+}
+const world = (px, py) => [view.x + px / view.z, view.y + py / view.z];
+
+/* ---------- text ---------- */
+const mctx = document.createElement('canvas').getContext('2d');
+const fontOf = it => `${it.weight} ${it.size}px ${FONTS[it.font] || FONTS.Sans}`;
+function layoutText(it){
+  mctx.font = fontOf(it);
+  const lines = [];
+  for (const para of it.text.split('\n')) {
+    let line = '';
+    for (const word of para.split(' ')) {
+      const t = line ? line + ' ' + word : word;
+      if (line && mctx.measureText(t).width > it.w) { lines.push(line); line = word; } else line = t;
+    }
+    lines.push(line);
+  }
+  it.h = Math.max(it.size * 1.2, lines.length * it.size * 1.2);
+  return lines;
+}
+
+/* ---------- drawing ---------- */
+function rrect(ctx, x, y, w, h, r){
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
+  ctx.beginPath(); ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function drawBg(ctx){
+  const tw = S.slides * W();
+  let f = S.bg.c1;
+  if (S.bg.type === 'grad') { f = ctx.createLinearGradient(0, 0, tw, 0); f.addColorStop(0, S.bg.c1); f.addColorStop(1, S.bg.c2); }
+  ctx.fillStyle = f; ctx.fillRect(0, 0, tw, H());
+}
+function drawItem(ctx, it, alpha = 1){
+  ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(it.rot); ctx.globalAlpha = it.opacity * alpha;
+  if (it.type === 'text') {
+    const lines = layoutText(it), lh = it.size * 1.2, w = it.w;
+    ctx.font = fontOf(it); ctx.fillStyle = it.color; ctx.textBaseline = 'middle'; ctx.textAlign = it.align;
+    const x = it.align === 'left' ? -w / 2 : it.align === 'right' ? w / 2 : 0;
+    lines.forEach((l, i) => ctx.fillText(l, x, -it.h / 2 + lh * i + lh / 2));
+  } else {
+    const m = media.get(it.mediaId), w = it.w, h = it.h;
+    rrect(ctx, -w / 2, -h / 2, w, h, it.radius);
+    if (!m || (m.kind === 'video' && m.el.readyState < 2)) { ctx.fillStyle = '#d8d5ce'; ctx.fill(); }
+    else {
+      ctx.save(); ctx.clip();
+      const c = cover(m.w, m.h, w, h, it.fx, it.fy, it.zoom);
+      ctx.drawImage(m.el, -w / 2 + c.dx, -h / 2 + c.dy, c.dw, c.dh);
+      ctx.restore();
+    }
+    if (it.borderW > 0) { // inner border: double-width stroke clipped to the shape
+      ctx.save(); rrect(ctx, -w / 2, -h / 2, w, h, it.radius); ctx.clip();
+      ctx.lineWidth = it.borderW * 2; ctx.strokeStyle = it.borderC; ctx.stroke(); ctx.restore();
+    }
+  }
+  ctx.restore();
+}
+function renderSlide(ctx, i, s){
+  ctx.setTransform(s, 0, 0, s, -i * W() * s, 0);
+  ctx.imageSmoothingQuality = 'high';
+  drawBg(ctx);
+  for (const it of S.items) drawItem(ctx, it);
+}
+function handles(it){
+  const w2 = it.w / 2, h2 = it.h / 2, list = [];
+  for (const [hx, hy] of [[-1,-1],[1,-1],[-1,1],[1,1]]) list.push({hx, hy, lx:hx * w2, ly:hy * h2});
+  list.push({hx:1, hy:0, lx:w2, ly:0}, {hx:-1, hy:0, lx:-w2, ly:0});
+  if (it.type !== 'text') list.push({hx:0, hy:-1, lx:0, ly:-h2}, {hx:0, hy:1, lx:0, ly:h2});
+  list.push({rot:true, lx:0, ly:-h2 - 34 / view.z});
+  return list;
+}
+function render(){
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#ebeae6'; ctx.fillRect(0, 0, cv.width, cv.height);
+  const z = view.z * dpr, px = 1 / view.z, w = W(), h = H(), tw = S.slides * w;
+  ctx.setTransform(z, 0, 0, z, -view.x * z, -view.y * z);
+  ctx.imageSmoothingQuality = 'high';
+  for (const it of S.items) drawItem(ctx, it, .22); // faded parts hanging outside the carousel
+  ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.14)'; ctx.shadowBlur = 20 * dpr; ctx.shadowOffsetY = 3 * dpr;
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, tw, h); ctx.restore();
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, tw, h); ctx.clip(); drawBg(ctx);
+  for (const it of S.items) drawItem(ctx, it); ctx.restore();
+  ctx.save(); ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = px; ctx.setLineDash([6 * px, 6 * px]);
+  for (let k = 1; k < S.slides; k++) { ctx.beginPath(); ctx.moveTo(k * w, 0); ctx.lineTo(k * w, h); ctx.stroke(); }
+  ctx.restore();
+  ctx.fillStyle = '#8a877f'; ctx.font = `600 ${12 * px}px -apple-system,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  for (let k = 0; k < S.slides; k++) ctx.fillText(String(k + 1), k * w + w / 2, -12 * px);
+  const it = getSel();
+  if (it) {
+    ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(it.rot);
+    if (cropMode && it.type !== 'text') {
+      const m = media.get(it.mediaId), c = cover(m.w, m.h, it.w, it.h, it.fx, it.fy, it.zoom);
+      ctx.globalAlpha = .35; ctx.drawImage(m.el, -it.w / 2 + c.dx, -it.h / 2 + c.dy, c.dw, c.dh); ctx.globalAlpha = 1;
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = px; ctx.strokeRect(-it.w / 2 + c.dx, -it.h / 2 + c.dy, c.dw, c.dh);
+    }
+    ctx.restore();
+    if (cropMode) drawItem(ctx, it);
+    ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(it.rot);
+    ctx.strokeStyle = '#1f6bff'; ctx.lineWidth = 2 * px; ctx.strokeRect(-it.w / 2, -it.h / 2, it.w, it.h);
+    if (!cropMode) {
+      const hs = handles(it), r = handles(it).find(x => x.rot);
+      ctx.beginPath(); ctx.moveTo(0, -it.h / 2); ctx.lineTo(r.lx, r.ly); ctx.stroke();
+      for (const hd of hs) {
+        ctx.beginPath();
+        if (hd.rot || (hd.hx && hd.hy)) ctx.arc(hd.lx, hd.ly, (hd.rot ? 9 : 8) * px, 0, Math.PI * 2);
+        else if (hd.hx) rrect(ctx, hd.lx - 4 * px, hd.ly - 11 * px, 8 * px, 22 * px, 4 * px);
+        else rrect(ctx, hd.lx - 11 * px, hd.ly - 4 * px, 22 * px, 8 * px, 4 * px);
+        ctx.fillStyle = hd.rot ? '#1f6bff' : '#fff'; ctx.fill(); ctx.lineWidth = 1.5 * px; ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+  ctx.save(); ctx.strokeStyle = '#ff3b6b'; ctx.lineWidth = 1.5 * px;
+  for (const g of guides) { ctx.beginPath(); if ('x' in g) { ctx.moveTo(g.x, -30 * px); ctx.lineTo(g.x, h + 30 * px); } else { ctx.moveTo(-30 * px, g.y); ctx.lineTo(tw + 30 * px, g.y); } ctx.stroke(); }
+  ctx.restore();
+}
+const hasVideo = () => S.items.some(i => i.type === 'video');
+(function loop(){ if (!exporting && (dirty || hasVideo())) { render(); dirty = false; } requestAnimationFrame(loop); })();
+
+/* ---------- view ---------- */
+function resize(){
+  const r = stage.getBoundingClientRect();
+  dpr = Math.min(window.devicePixelRatio || 1, 3); SW = r.width; SH = r.height;
+  cv.width = Math.round(SW * dpr); cv.height = Math.round(SH * dpr);
+  if (!fitted && SW > 0) { fit(); fitted = true; }
+  dirty = true;
+}
+new ResizeObserver(resize).observe(stage);
+function fit(){
+  const tw = S.slides * W(), h = H();
+  view.z = Math.min((SH - 88) / h, Math.max((SW - 32) / tw, (SW - 32) / (W() * 1.25)));
+  view.y = -(SH / view.z - h) / 2;
+  view.x = tw * view.z < SW ? -(SW / view.z - tw) / 2 : -16 / view.z;
+  dirty = true;
+}
+function zoomAt(px, py, k){
+  const [wx, wy] = world(px, py);
+  view.z = clamp(view.z * k, .04, 3); view.x = wx - px / view.z; view.y = wy - py / view.z; dirty = true;
+}
+const curSlide = () => clamp(Math.floor((view.x + SW / view.z / 2) / W()), 0, S.slides - 1);
+function showSlide(i){ view.x = i * W() + W() / 2 - SW / view.z / 2; dirty = true; }
+
+/* ---------- pointer gestures ---------- */
+const ptrs = new Map(); let g = null, lastTap = {t:0, id:null};
+const pos = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+function hitItem(wx, wy){
+  for (let i = S.items.length - 1; i >= 0; i--) {
+    const it = S.items[i], [lx, ly] = toLocal(it, wx, wy);
+    if (Math.abs(lx) <= it.w / 2 && Math.abs(ly) <= it.h / 2) return it;
+  }
+  return null;
+}
+function hitHandle(it, wx, wy){
+  for (const hd of handles(it)) {
+    const [hx, hy] = toWorld(it, hd.lx, hd.ly);
+    if (Math.hypot(wx - hx, wy - hy) < 20 / view.z) return hd;
+  }
+  return null;
+}
+function pinchInfo(){
+  const [a, b] = [...ptrs.values()];
+  return {d: Math.hypot(b.x - a.x, b.y - a.y) || 1, a: Math.atan2(b.y - a.y, b.x - a.x), mx:(a.x + b.x) / 2, my:(a.y + b.y) / 2};
+}
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId);
+  const [px, py] = pos(e); ptrs.set(e.pointerId, {x:px, y:py});
+  if (ptrs.size === 2) { const it = getSel(); g = {t:'pinch', p0:pinchInfo(), it0: it ? {...it} : null, v0:{...view}}; return; }
+  if (ptrs.size > 2) return;
+  const [wx, wy] = world(px, py), it = getSel();
+  const base = {sx:wx, sy:wy, spx:px, spy:py, moved:false};
+  if (it && !cropMode) {
+    const hd = hitHandle(it, wx, wy);
+    if (hd) { g = {...base, t: hd.rot ? 'rot' : 'resize', hd, it0:{...it}}; return; }
+  }
+  const hit = (cropMode && it && hitItem(wx, wy) === it) ? it : hitItem(wx, wy);
+  if (hit) {
+    if (hit.id !== sel) { sel = hit.id; cropMode = false; closeSheet(); updUI(); }
+    g = {...base, t: cropMode ? 'crop' : 'move', it0:{...hit}};
+  } else {
+    if (sel) { sel = null; cropMode = false; closeSheet(); updUI(); }
+    g = {...base, t:'pan', v0:{...view}};
+  }
+  dirty = true;
+});
+cv.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId) || !g) return;
+  const [px, py] = pos(e); ptrs.set(e.pointerId, {x:px, y:py});
+  const it = getSel();
+  if (g.t === 'pinch') {
+    if (ptrs.size < 2) return;
+    const p = pinchInfo(), k = p.d / g.p0.d;
+    if (it && g.it0 && cropMode && it.type !== 'text') it.zoom = clamp(g.it0.zoom * k, 1, 5);
+    else if (it && g.it0) {
+      it.w = Math.max(30, g.it0.w * k); if (it.type === 'text') it.size = Math.max(8, g.it0.size * k); else it.h = Math.max(30, g.it0.h * k);
+      it.rot = g.it0.rot + (p.a - g.p0.a);
+    } else {
+      view.z = clamp(g.v0.z * k, .04, 3);
+      const wx = g.v0.x + g.p0.mx / g.v0.z, wy = g.v0.y + g.p0.my / g.v0.z;
+      view.x = wx - p.mx / view.z; view.y = wy - p.my / view.z;
+    }
+    dirty = true; return;
+  }
+  if (Math.hypot(px - g.spx, py - g.spy) > 4) g.moved = true;
+  if (!g.moved) return;
+  const [wx, wy] = world(px, py);
+  if (g.t === 'pan') { view.x = g.v0.x - (px - g.spx) / view.z; view.y = g.v0.y - (py - g.spy) / view.z; }
+  else if (g.t === 'move' && it) moveSnap(it, g.it0.x + wx - g.sx, g.it0.y + wy - g.sy);
+  else if (g.t === 'crop' && it) {
+    const m = media.get(it.mediaId), c = cover(m.w, m.h, it.w, it.h, .5, .5, it.zoom);
+    const cs = Math.cos(-it.rot), sn = Math.sin(-it.rot), dx = wx - g.sx, dy = wy - g.sy;
+    const lx = dx * cs - dy * sn, ly = dx * sn + dy * cs;
+    if (c.dw - it.w > 1) it.fx = clamp(g.it0.fx - lx / (c.dw - it.w), 0, 1);
+    if (c.dh - it.h > 1) it.fy = clamp(g.it0.fy - ly / (c.dh - it.h), 0, 1);
+  }
+  else if (g.t === 'rot' && it) {
+    let a = Math.atan2(wy - it.y, wx - it.x) + Math.PI / 2;
+    const q = Math.round(a / (Math.PI / 2)) * (Math.PI / 2);
+    if (Math.abs(a - q) < .07) a = q;
+    it.rot = a;
+  }
+  else if (g.t === 'resize' && it) resizeBy(it, g.it0, g.hd, wx, wy);
+  dirty = true;
+});
+function endPtr(e){
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.delete(e.pointerId);
+  if (g && g.t !== 'pinch' && !g.moved && ptrs.size === 0) { // tap
+    const it = getSel(), now = performance.now();
+    if (it && lastTap.id === it.id && now - lastTap.t < 320) {
+      if (it.type === 'text') sheetText(); else { cropMode = !cropMode; updUI(); }
+      lastTap = {t:0, id:null};
+    } else lastTap = {t:now, id: it ? it.id : null};
+  }
+  if (g && g.t === 'pinch') g = ptrs.size ? null : g; // lifting one finger ends the pinch without jumping
+  if (ptrs.size === 0) { g = null; guides = []; commit(); dirty = true; }
+}
+cv.addEventListener('pointerup', endPtr); cv.addEventListener('pointercancel', endPtr);
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const [px, py] = pos(e);
+  if (e.ctrlKey || e.metaKey) zoomAt(px, py, Math.exp(-e.deltaY * .01));
+  else { view.x += (e.deltaX + (e.shiftKey ? 0 : e.deltaY)) / view.z; dirty = true; }
+}, {passive:false});
+document.addEventListener('gesturestart', e => e.preventDefault());
+
+function moveSnap(it, nx, ny){
+  const {ex, ey} = ext(it), th = 10 / view.z, w = W(), h = H();
+  const xs = [], ys = [0, h / 2, h];
+  for (let k = 0; k <= S.slides; k++) xs.push(k * w);
+  for (let k = 0; k < S.slides; k++) xs.push(k * w + w / 2);
+  guides = [];
+  const snap = (v, e, targets, key) => {
+    let best = null;
+    for (const off of [-e, 0, e]) for (const t of targets) {
+      const d = t - (v + off);
+      if (Math.abs(d) < th && (!best || Math.abs(d) < Math.abs(best.d))) best = {d, t};
+    }
+    if (best) { guides.push({[key]: best.t}); return v + best.d; }
+    return v;
+  };
+  it.x = snap(nx, ex, xs, 'x'); it.y = snap(ny, ey, ys, 'y');
+}
+function resizeBy(it, i0, hd, wx, wy){
+  const {hx, hy} = hd;
+  const A = toWorld(i0, -hx * i0.w / 2, -hy * i0.h / 2); // opposite corner/edge stays put
+  const cs = Math.cos(-i0.rot), sn = Math.sin(-i0.rot), vx = wx - A[0], vy = wy - A[1];
+  const dx = vx * cs - vy * sn, dy = vx * sn + vy * cs;
+  if (hx && hy) {
+    const k = Math.max(40 / Math.min(i0.w, i0.h), (dx * hx * i0.w + dy * hy * i0.h) / (i0.w * i0.w + i0.h * i0.h));
+    it.w = i0.w * k; it.h = i0.h * k; if (it.type === 'text') it.size = i0.size * k;
+  } else if (hx) it.w = Math.max(40, dx * hx);
+  else it.h = Math.max(40, dy * hy);
+  if (it.type === 'text') layoutText(it);
+  const c = Math.cos(i0.rot), s = Math.sin(i0.rot), ox = hx * it.w / 2, oy = hy * (hx && !hy ? 0 : it.h / 2);
+  it.x = A[0] + ox * c - oy * s; it.y = A[1] + ox * s + oy * c;
+}
+
+/* ---------- media ---------- */
+function loadMedia(f){
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(f), id = uid();
+    if (f.type.startsWith('video')) {
+      const v = document.createElement('video');
+      v.muted = true; v.loop = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto';
+      v.onloadedmetadata = () => {
+        const m = {id, kind:'video', el:v, w:v.videoWidth || 1080, h:v.videoHeight || 1920, dur: isFinite(v.duration) ? v.duration : 10};
+        media.set(id, m); v.play().catch(() => {}); res(m);
+      };
+      v.onerror = rej; $('#vids').append(v); v.src = url;
+    } else {
+      const img = new Image();
+      img.onload = () => { const m = {id, kind:'image', el:img, w:img.naturalWidth, h:img.naturalHeight}; media.set(id, m); res(m); };
+      img.onerror = rej; img.src = url;
+    }
+  });
+}
+function firstEmptySlide(){
+  for (let s = 0; s < S.slides; s++) if (!S.items.some(it => inSlide(it, s))) return s;
+  return S.slides;
+}
+async function addFiles(files){
+  let slot = firstEmptySlide(), first = null;
+  for (const f of [...files]) {
+    const m = await loadMedia(f).catch(() => null);
+    if (!m) { toast(`Couldn't open ${f.name}`); continue; }
+    if (slot >= S.slides) { if (S.slides < MAX_SLIDES) S.slides = slot + 1; else toast('Instagram allows up to 20 slides'); }
+    const s = Math.min(slot++, S.slides - 1), k = Math.min(W() * .84 / m.w, H() * .84 / m.h);
+    S.items.push({id:uid(), type:m.kind, mediaId:m.id, x:s * W() + W() / 2, y:H() / 2, w:m.w * k, h:m.h * k, rot:0,
+      opacity:1, radius:0, borderW:0, borderC:'#ffffff', fx:.5, fy:.5, zoom:1, muted:false});
+    if (first === null) first = s;
+  }
+  if (first !== null) showSlide(first);
+  commit(); updUI();
+}
+$('#file').addEventListener('change', e => { addFiles(e.target.files); e.target.value = ''; });
+function addText(){
+  const s = curSlide();
+  const it = {id:uid(), type:'text', text:'Your text', font:'Sans', size:96, weight:700, color: S.bg.c1 === '#111111' ? '#ffffff' : '#111111',
+    align:'center', x:s * W() + W() / 2, y:H() / 2, w:W() * .74, h:120, rot:0, opacity:1};
+  layoutText(it); S.items.push(it); sel = it.id; commit(); updUI(); sheetText(true);
+}
+function frame(it, x, y, w, h){ Object.assign(it, {x:x + w / 2, y:y + h / 2, w, h, rot:0, fx:.5, fy:.5, zoom:1}); }
+
+/* ---------- layouts ---------- */
+const LAYOUTS = {
+  one:   {name:'One per slide', note:'Each photo fills a slide', boxes:[[0,0,33.3,100],[33.3,0,33.3,100],[66.6,0,33.4,100]]},
+  seam:  {name:'Seamless', note:'Photos straddle every seam', boxes:[[20,18,26,64],[53,18,26,64]]},
+  pano:  {name:'Panorama', note:'First photo spans all slides', boxes:[[0,0,100,100]]},
+  two:   {name:'Two per slide', note:'Stacked pairs with margins', boxes:[[3,6,27,40],[3,54,27,40],[36,6,27,40],[36,54,27,40],[70,6,27,40],[70,54,27,40]]}
+};
+function applyLayout(kind){
+  const ms = S.items.filter(i => i.type !== 'text');
+  if (!ms.length) return toast('Add photos or videos first');
+  const w = W(), h = H(), gap = 48, set = n => { S.slides = clamp(n, 1, MAX_SLIDES); };
+  if (kind === 'one') { set(ms.length); ms.slice(0, MAX_SLIDES).forEach((it, i) => frame(it, i * w, 0, w, h)); }
+  if (kind === 'pano') frame(ms[0], 0, 0, S.slides * w, h);
+  if (kind === 'seam') { set(ms.length + 1); ms.slice(0, MAX_SLIDES - 1).forEach((it, i) => frame(it, (i + 1) * w - w * .55, h * .16, w * 1.1, h * .68)); }
+  if (kind === 'two') {
+    set(Math.ceil(ms.length / 2));
+    ms.slice(0, MAX_SLIDES * 2).forEach((it, i) => frame(it, Math.floor(i / 2) * w + gap, gap + (i % 2) * (h / 2 - gap / 2), w - gap * 2, h / 2 - gap * 1.5));
+  }
+  if (ms.length > MAX_SLIDES && kind !== 'pano') toast('Some items didn’t fit in 20 slides');
+  commit(); fit(); updUI();
+}
+
+/* ---------- item actions ---------- */
+function act(name){
+  const it = getSel(), idx = S.items.indexOf(it);
+  if (name === 'media') return $('#file').click();
+  if (name === 'text') return addText();
+  if (name === 'bg') return sheetBg();
+  if (name === 'layout') return sheetLayouts();
+  if (name === 'slides') return sheetSlides();
+  if (!it) return;
+  if (name === 'crop') { cropMode = true; closeSheet(); }
+  if (name === 'fill') { const s = clamp(Math.floor(it.x / W()), 0, S.slides - 1); frame(it, s * W(), 0, W(), H()); }
+  if (name === 'style') return it.type === 'text' ? sheetText() : sheetStyle();
+  if (name === 'sound') { it.muted = !it.muted; toast(it.muted ? 'Muted in export' : 'Sound on in export'); }
+  if (name === 'up' && idx < S.items.length - 1) S.items.splice(idx + 1, 0, S.items.splice(idx, 1)[0]);
+  if (name === 'down' && idx > 0) S.items.splice(idx - 1, 0, S.items.splice(idx, 1)[0]);
+  if (name === 'dup') { const c = {...it, id:uid(), x:it.x + 40, y:it.y + 40}; S.items.push(c); sel = c.id; }
+  if (name === 'del') { S.items.splice(idx, 1); sel = null; cropMode = false; closeSheet(); }
+  commit(); updUI();
+}
+
+/* ---------- UI ---------- */
+const IC = {
+  media:'<rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-9 8"/>',
+  text:'<path d="M5 7V5h14v2M12 5v14M9 19h6"/>',
+  bg:'<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M3 15 15 3M9 21 21 9"/>',
+  layout:'<rect x="3" y="4" width="8" height="16" rx="1.5"/><rect x="13" y="4" width="8" height="7" rx="1.5"/><rect x="13" y="13" width="8" height="7" rx="1.5"/>',
+  slides:'<rect x="2" y="6" width="6" height="12" rx="1"/><rect x="9" y="6" width="6" height="12" rx="1"/><rect x="16" y="6" width="6" height="12" rx="1"/>',
+  crop:'<path d="M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2"/>',
+  fill:'<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>',
+  style:'<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
+  edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+  up:'<path d="M12 19V5M6 11l6-6 6 6"/>',
+  down:'<path d="M12 5v14M6 13l6 6 6-6"/>',
+  dup:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
+  del:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+  sound:'<path d="M4 9v6h4l5 4V5L8 9zM16 9a4 4 0 0 1 0 6"/>',
+  mute:'<path d="M4 9v6h4l5 4V5L8 9zM16 9l5 6M21 9l-5 6"/>'
+};
+const ic = n => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[n]}</svg>`;
+function updUI(){
+  dirty = true;
+  $('#undo').disabled = !hist.length; $('#redo').disabled = !fut.length;
+  document.querySelectorAll('.ratios button').forEach(b => b.setAttribute('aria-pressed', b.dataset.r === S.ratio));
+  $('#hint').style.display = S.items.length ? 'none' : '';
+  const it = getSel();
+  if (it && cropMode) {
+    tray.innerHTML = `<div class="croprow"><span>Zoom</span><input type="range" id="cz" min="1" max="5" step="0.01" value="${it.zoom}" aria-label="Zoom inside frame">
+      <button class="chip" id="creset">Reset</button><button class="primary" id="cdone">Done</button></div>`;
+    $('#cz').oninput = e => { it.zoom = +e.target.value; dirty = true; };
+    $('#cz').onchange = commit;
+    $('#creset').onclick = () => { Object.assign(it, {fx:.5, fy:.5, zoom:1}); commit(); updUI(); };
+    $('#cdone').onclick = () => { cropMode = false; updUI(); };
+    return;
+  }
+  let tools;
+  if (!it) tools = [['media','Media'],['text','Text'],['bg','Background'],['layout','Layouts'],['slides',`Slides · ${S.slides}`]];
+  else if (it.type === 'text') tools = [['edit','Edit','style'],['up','Forward'],['down','Back'],['dup','Duplicate'],['del','Delete']];
+  else tools = [['crop','Crop'],['fill','Fill slide'],['style','Style'], ...(it.type === 'video' ? [[it.muted ? 'mute' : 'sound', it.muted ? 'Muted' : 'Sound', 'sound']] : []),
+    ['up','Forward'],['down','Back'],['dup','Duplicate'],['del','Delete']];
+  tray.innerHTML = tools.map(([icn, label, a]) => `<button class="tool${icn === 'del' ? ' danger' : ''}" data-a="${a || icn}">${ic(icn)}${label}</button>`).join('');
+}
+tray.addEventListener('click', e => { const b = e.target.closest('[data-a]'); if (b) act(b.dataset.a); });
+document.querySelectorAll('.ratios button').forEach(b => b.onclick = () => {
+  const k = RATIOS[b.dataset.r][1] / H(); S.ratio = b.dataset.r;
+  for (const it of S.items) it.y *= k;
+  commit(); fit(); updUI();
+});
+$('#undo').onclick = () => undoRedo(hist, fut);
+$('#redo').onclick = () => undoRedo(fut, hist);
+$('#zin').onclick = () => zoomAt(SW / 2, SH / 2, 1.25);
+$('#zout').onclick = () => zoomAt(SW / 2, SH / 2, .8);
+$('#zfit').onclick = fit;
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input,textarea')) return;
+  const it = getSel(), mod = e.metaKey || e.ctrlKey;
+  if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? undoRedo(fut, hist) : undoRedo(hist, fut); }
+  else if (it && (e.key === 'Delete' || e.key === 'Backspace')) act('del');
+  else if (e.key === 'Escape') { sel = null; cropMode = false; closeSheet(); closeModal(); updUI(); }
+  else if (it && e.key.startsWith('Arrow')) {
+    const d = e.shiftKey ? 20 : 2;
+    it.x += e.key === 'ArrowLeft' ? -d : e.key === 'ArrowRight' ? d : 0; it.y += e.key === 'ArrowUp' ? -d : e.key === 'ArrowDown' ? d : 0;
+    e.preventDefault(); commit(); dirty = true;
+  }
+});
+window.addEventListener('beforeunload', e => { if (S.items.length) { e.preventDefault(); e.returnValue = ''; } });
+let toastT;
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2200); }
+
+/* ---------- sheets ---------- */
+let sheetFn = null;
+function openSheet(fn, title, body){
+  sheetFn = fn;
+  sheet.innerHTML = `<div class="sh-head"><b>${title}</b><button class="done">Done</button></div>${body}`;
+  sheet.classList.add('open');
+}
+function closeSheet(save = true){ if (save) commit(); sheet.classList.remove('open'); sheetFn = null; }
+const refresh = () => sheetFn && sheetFn();
+const swatches = (k, cur, bg) => `<div class="chips">${SWATCH.map(c => `<button class="sw${c === cur ? ' on' : ''}" style="background:${c}" data-sw="${c}" data-k="${k}"${bg ? ' data-bg' : ''} aria-label="${c}"></button>`).join('')}
+  <input type="color" value="${cur}" data-k="${k}"${bg ? ' data-bg' : ''} aria-label="Custom colour"></div>`;
+const range = (label, k, min, max, step, v) => `<div class="row"><label>${label}</label><input type="range" min="${min}" max="${max}" step="${step}" value="${v}" data-k="${k}" aria-label="${label}"></div>`;
+const chips = (attr, list, cur) => `<div class="chips">${list.map(([v, l]) => `<button class="chip${v === cur ? ' on' : ''}" data-${attr}="${v}">${l}</button>`).join('')}</div>`;
+
+function sheetBg(){
+  const b = S.bg;
+  openSheet(sheetBg, 'Background', `
+    <div class="sec">Presets</div><div class="chips">${BG_PRESETS.map((p, i) => `<button class="sw" data-preset="${i}" aria-label="Preset ${i + 1}" style="width:44px;height:44px;border-radius:12px;background:${p.type === 'grad' ? `linear-gradient(90deg,${p.c1},${p.c2})` : p.c1}"></button>`).join('')}</div>
+    <div class="sec">Type</div>${chips('bgtype', [['solid','Solid'],['grad','Gradient across slides']], b.type)}
+    <div class="sec">${b.type === 'grad' ? 'Start colour' : 'Colour'}</div>${swatches('c1', b.c1, true)}
+    ${b.type === 'grad' ? `<div class="sec">End colour</div>${swatches('c2', b.c2, true)}` : ''}`);
+}
+function sheetLayouts(){
+  openSheet(sheetLayouts, 'Layouts', `<p class="sub" style="margin-top:0">Arranges your photos &amp; videos in the order you added them. Undo if you don’t like it.</p>
+    <div class="layouts">${Object.entries(LAYOUTS).map(([k, l]) => `<button class="lay" data-layout="${k}"><i>${l.boxes.map(([x, y, w, h]) => `<b style="left:${x}%;top:${y}%;width:${w}%;height:${h}%"></b>`).join('')}</i>${l.name}<small>${l.note}</small></button>`).join('')}</div>`);
+}
+function sheetSlides(){
+  openSheet(sheetSlides, 'Slides', `<div class="row" style="justify-content:space-between"><div class="stepper"><button data-slides="-1" aria-label="Remove slide">−</button><span>${S.slides}</span><button data-slides="1" aria-label="Add slide">+</button></div>
+    <span class="sub" style="margin:0">Instagram allows 1–20</span></div>
+    <p class="note">Removing a slide keeps anything on it — it just hangs off the end (shown faded) and won’t be exported.</p>`);
+}
+function sheetStyle(){
+  const it = getSel(); if (!it) return;
+  openSheet(sheetStyle, 'Style', `${range('Corners', 'radius', 0, 540, 1, it.radius)}${range('Border', 'borderW', 0, 80, 1, it.borderW)}
+    <div class="sec">Border colour</div>${swatches('borderC', it.borderC)}${range('Opacity', 'opacity', .05, 1, .01, it.opacity)}`);
+}
+function sheetText(focus){
+  const it = getSel(); if (!it || it.type !== 'text') return;
+  openSheet(sheetText, 'Text', `<textarea data-k="text" aria-label="Text">${it.text.replace(/</g, '&lt;')}</textarea>
+    <div class="sec">Font</div>${chips('font', Object.keys(FONTS).map(f => [f, `<span style="font-family:${FONTS[f].replace(/"/g, '&quot;')}">${f}</span>`]), it.font)}
+    <div class="sec">Weight &amp; align</div>${chips('weight', [['400','Regular'],['700','Bold'],['900','Black']], String(it.weight))}
+    <div style="height:6px"></div>${chips('align', [['left','Left'],['center','Center'],['right','Right']], it.align)}
+    ${range('Size', 'size', 24, 400, 1, it.size)}<div class="sec">Colour</div>${swatches('color', it.color)}${range('Opacity', 'opacity', .05, 1, .01, it.opacity)}`);
+  if (focus === true) setTimeout(() => { const t = sheet.querySelector('textarea'); t.focus(); t.select(); }, 60);
+}
+sheet.addEventListener('input', e => {
+  const t = e.target, k = t.dataset.k; if (!k) return;
+  const tgt = 'bg' in t.dataset ? S.bg : getSel(); if (!tgt) return;
+  tgt[k] = t.type === 'range' ? +t.value : t.value;
+  if (tgt.type === 'text') layoutText(tgt);
+  dirty = true;
+});
+sheet.addEventListener('change', e => { if (e.target.dataset.k) { commit(); if (e.target.type === 'color') refresh(); } });
+sheet.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const d = b.dataset, it = getSel();
+  if (b.classList.contains('done')) return closeSheet();
+  if (d.sw) { ('bg' in d ? S.bg : it)[d.k] = d.sw; }
+  else if (d.preset) Object.assign(S.bg, BG_PRESETS[+d.preset]);
+  else if (d.bgtype) S.bg.type = d.bgtype;
+  else if (d.layout) return applyLayout(d.layout);
+  else if (d.slides) { S.slides = clamp(S.slides + +d.slides, 1, MAX_SLIDES); fit(); }
+  else if (it && d.font) it.font = d.font;
+  else if (it && d.weight) it.weight = +d.weight;
+  else if (it && d.align) it.align = d.align;
+  else return;
+  if (it && it.type === 'text') layoutText(it);
+  commit(); updUI(); refresh();
+});
+
+/* ---------- preview ---------- */
+let pvOpen = false;
+function openPreview(){
+  sel = null; cropMode = false; closeSheet(); updUI();
+  const w = 540, h = Math.round(540 * H() / W());
+  modal.innerHTML = `<div class="phone"><div class="igbar"><i></i>your_account<button class="icon" id="pvx" aria-label="Close preview"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div style="position:relative"><span class="count" id="pvc">1/${S.slides}</span><div class="car" id="car">${Array.from({length:S.slides}, (_, i) => `<canvas width="${w}" height="${h}" data-i="${i}"></canvas>`).join('')}</div></div>
+    <div class="dots">${Array.from({length:S.slides}, (_, i) => `<b class="${i ? '' : 'on'}"></b>`).join('')}</div></div>`;
+  modal.classList.add('open'); pvOpen = true;
+  const car = $('#car'), cs = [...car.children];
+  car.onscroll = () => { const i = Math.round(car.scrollLeft / car.clientWidth); $('#pvc').textContent = `${i + 1}/${S.slides}`; modal.querySelectorAll('.dots b').forEach((b, j) => b.classList.toggle('on', i === j)); };
+  $('#pvx').onclick = closeModal;
+  (function pv(){ if (!pvOpen) return; cs.forEach(c => renderSlide(c.getContext('2d'), +c.dataset.i, c.width / W())); requestAnimationFrame(pv); })();
+}
+function closeModal(){ if (exporting) return; pvOpen = false; modal.classList.remove('open'); modal.innerHTML = ''; }
+modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+$('#previewBtn').onclick = openPreview;
+
+/* ---------- export ---------- */
+const pickMime = () => ['video/mp4;codecs=avc1.640028,mp4a.40.2','video/mp4;codecs=avc1,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm']
+  .find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t));
+const videosIn = i => S.items.filter(it => it.type === 'video' && inSlide(it, i));
+function exportPlan(){
+  const slides = Array.from({length:S.slides}, (_, i) => ({i, vids:videosIn(i)}));
+  const durs = S.items.filter(it => it.type === 'video').map(it => media.get(it.mediaId).dur);
+  return {slides, dur: Math.min(MAX_VIDEO_S, Math.max(0, ...durs))};
+}
+function openExport(){
+  sel = null; cropMode = false; closeSheet(); updUI();
+  const [w, h] = RATIOS[S.ratio], p = exportPlan(), nv = p.slides.filter(s => s.vids.length).length, mime = pickMime();
+  modal.innerHTML = `<div class="panel"><h2>Export carousel</h2>
+    <p class="sub">${S.slides} slides · ${S.ratio} · ${w} × ${h} px each</p>
+    <ul class="plan">${p.slides.map(s => `<li>${s.i + 1} · ${s.vids.length ? 'Video' : 'Photo'}</li>`).join('')}</ul>
+    <p class="note">${w} px wide is the largest Instagram keeps for feed posts — bigger files just get downscaled, so every slide is rendered at exactly ${w} × ${h}. Photos save as high-quality JPG.
+    ${nv ? `<br><br>${nv} slide${nv > 1 ? 's have' : ' has'} video → MP4 at ${FPS} fps, ${p.dur.toFixed(1)} s (longest clip${p.dur >= MAX_VIDEO_S ? ', capped at Instagram’s 60 s' : ''}; shorter clips loop). Video renders in real time — keep this screen open.` : ''}
+    ${nv && mime && !mime.includes('mp4') ? '<br><br><b>This browser can only record WebM, which Instagram won’t accept.</b> Use Safari on iPhone/Mac or a recent Chrome.' : ''}
+    ${nv && !mime ? '<br><br><b>This browser can’t record video.</b> Video slides will be skipped.' : ''}</p>
+    <div class="prog" hidden><div></div></div><p class="sub" id="pstat"></p>
+    <div class="results" id="res"></div>
+    <div class="btns" id="ebtns"><button class="ghost" id="ecancel">Close</button><button class="primary" id="ego">Export ${S.slides} file${S.slides > 1 ? 's' : ''}</button></div></div>`;
+  modal.classList.add('open');
+  $('#ecancel').onclick = closeModal;
+  $('#ego').onclick = () => runExport().catch(err => { exporting = false; $('#pstat').textContent = 'Export failed: ' + err.message; console.error(err); });
+}
+$('#exportBtn').onclick = () => S.items.length ? openExport() : toast('Add some photos or videos first');
+const toBlob = (c, type, q) => new Promise(r => c.toBlob(r, type, q));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function mkCanvas(w, h){ const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+
+async function runExport(){
+  const [w, h] = RATIOS[S.ratio], p = exportPlan(), out = [];
+  const bar = modal.querySelector('.prog'), stat = $('#pstat'), setP = f => bar.firstElementChild.style.width = (f * 100).toFixed(1) + '%';
+  exporting = true; bar.hidden = false; $('#ego').disabled = true; $('#ecancel').disabled = true;
+  const vidSlides = p.slides.filter(s => s.vids.length), mime = pickMime();
+  for (const s of p.slides.filter(s => !s.vids.length)) {
+    stat.textContent = `Rendering photo slide ${s.i + 1}…`;
+    const c = mkCanvas(w, h); renderSlide(c.getContext('2d'), s.i, 1);
+    out[s.i] = {name:`slide-${pad(s.i + 1)}.jpg`, blob: await toBlob(c, 'image/jpeg', .95)};
+    setP(out.filter(Boolean).length / S.slides * (vidSlides.length ? .1 : 1));
+  }
+  if (vidSlides.length && mime) await exportVideos(vidSlides, p.dur, w, h, mime, out, f => { setP(.1 + f * .9); stat.textContent = `Recording video… ${Math.round(f * 100)}%`; });
+  exporting = false; setP(1); dirty = true;
+  showResults(out.filter(Boolean));
+}
+
+const audioSrc = new Map(); let actx = null;
+async function exportVideos(slides, dur, w, h, mime, out, progress){
+  const vids = [...new Set(slides.flatMap(s => s.vids.map(v => media.get(v.mediaId))))];
+  try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); await actx.resume(); } catch { actx = null; }
+  const recs = slides.map(s => {
+    const c = mkCanvas(w, h), ctx = c.getContext('2d'), stream = c.captureStream(FPS);
+    if (actx) {
+      const dest = actx.createMediaStreamDestination(); let any = false;
+      for (const it of s.vids) if (!it.muted) {
+        const m = media.get(it.mediaId);
+        try { if (!audioSrc.has(m.id)) audioSrc.set(m.id, actx.createMediaElementSource(m.el)); audioSrc.get(m.id).connect(dest); any = true; } catch {}
+      }
+      if (any) dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+    }
+    const rec = new MediaRecorder(stream, {mimeType:mime, videoBitsPerSecond:16e6, audioBitsPerSecond:192e3}), chunks = [];
+    rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+    renderSlide(ctx, s.i, 1);
+    return {s, ctx, rec, chunks};
+  });
+  const sounding = new Set(slides.flatMap(s => s.vids.filter(v => !v.muted).map(v => v.mediaId)));
+  for (const m of vids) { m.el.pause(); m.el.currentTime = 0; m.el.muted = !(actx && sounding.has(m.id)); } // audio goes only into the recording graph, not the speakers
+  await sleep(250);
+  recs.forEach(r => r.rec.start(1000));
+  await Promise.all(vids.map(m => m.el.play().catch(() => {})));
+  const t0 = performance.now();
+  await new Promise(res => (function frame(){
+    const t = (performance.now() - t0) / 1000;
+    recs.forEach(r => renderSlide(r.ctx, r.s.i, 1));
+    progress(Math.min(1, t / dur));
+    if (t >= dur) return res();
+    requestAnimationFrame(frame);
+  })());
+  await Promise.all(recs.map(r => new Promise(res => { r.rec.onstop = res; r.rec.stop(); })));
+  for (const m of vids) m.el.muted = true;
+  for (const [id, src] of audioSrc) try { src.disconnect(); } catch {}
+  const ext = mime.includes('mp4') ? 'mp4' : 'webm';
+  recs.forEach(r => out[r.s.i] = {name:`slide-${pad(r.s.i + 1)}.${ext}`, blob:new Blob(r.chunks, {type:mime.split(';')[0]})});
+}
+function showResults(out){
+  const files = out.map(o => new File([o.blob], o.name, {type:o.blob.type}));
+  const canShare = !!(navigator.canShare && navigator.canShare({files}));
+  $('#pstat').textContent = `Done — ${out.length} file${out.length > 1 ? 's' : ''}, in slide order. Upload them to Instagram in this order.`;
+  $('#res').innerHTML = out.map(o => { const u = URL.createObjectURL(o.blob); o.url = u;
+    return `<a href="${u}" download="${o.name}">${o.blob.type.startsWith('video') ? `<video src="${u}" muted loop autoplay playsinline></video>` : `<img src="${u}" alt="${o.name}">`}<span>${o.name}</span></a>`; }).join('');
+  $('#ebtns').innerHTML = `<button class="ghost" id="ecancel">Close</button><button class="ghost" id="edl">Download all</button>${canShare ? '<button class="primary" id="eshare">Save / Share</button>' : ''}`;
+  $('#ecancel').onclick = closeModal;
+  $('#edl').onclick = async () => { for (const o of out) { const a = document.createElement('a'); a.href = o.url; a.download = o.name; a.click(); await sleep(350); } };
+  if (canShare) $('#eshare').onclick = () => navigator.share({files}).catch(e => { if (e.name !== 'AbortError') toast('Sharing failed — try Download all'); });
+}
+
+/* ---------- self-check (open with #test) ---------- */
+function selfTest(){
+  const a = (c, m) => { if (!c) throw new Error('selftest failed: ' + m); };
+  a(RATIOS['1:1'].join() === '1080,1080' && RATIOS['4:5'].join() === '1080,1350' && RATIOS['3:4'].join() === '1080,1440', 'instagram sizes');
+  const c = cover(2000, 1000, 1080, 1350, .5, .5, 1);
+  a(Math.abs(c.dh - 1350) < 1e-6 && c.dw >= 1080 && Math.abs(c.dx - (1080 - c.dw) / 2) < 1e-6, 'cover crop');
+  const it = {x:100, y:100, w:200, h:100, rot:Math.PI / 2}, [lx, ly] = toLocal(it, 100, 190);
+  a(Math.abs(lx - 90) < 1e-6 && Math.abs(ly) < 1e-6, 'toLocal');
+  const [wx, wy] = toWorld(it, lx, ly); a(Math.abs(wx - 100) < 1e-6 && Math.abs(wy - 190) < 1e-6, 'toWorld round-trip');
+  const box = {x:1080, y:600, w:400, h:400, rot:0}; a(inSlide(box, 0) && inSlide(box, 1) && !inSlide(box, 2), 'seam spans two slides');
+  console.log('selftest ok'); return 'ok';
+}
+if (location.hash === '#test') selfTest();
+updUI();
+</script>
+</body>
+</html>
