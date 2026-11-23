@@ -42,7 +42,7 @@ svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke
 .seg button[aria-pressed=true]{background:var(--sel);color:var(--sel-text)}
 
 header{background:var(--ground);position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:4px;padding:calc(14px + env(safe-area-inset-top)) 8px 6px}
-header .seg{margin:0 auto;flex:0 1 auto}
+header .spacer{flex:1}
 header .seg button{min-height:34px;padding:0 13px}
 header .btn:not(.icon){min-height:38px;font-size:var(--t-body)}
 
@@ -51,7 +51,6 @@ canvas#cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;dis
 .zoom{position:absolute;right:10px;top:8px;display:flex;background:var(--surface);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border-radius:var(--r-m)}
 .zoom button{min-width:40px;min-height:36px;font-weight:600;color:var(--text-2)}
 @media (pointer:coarse){.zoom{display:none}}
-#count{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:var(--surface);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border-radius:var(--r-m);padding:4px 10px;font-size:var(--t-cap);font-weight:600;font-variant-numeric:tabular-nums;color:var(--text-2);pointer-events:none}
 #empty{position:absolute;inset:0;background:var(--ground);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center}
 #empty h1{font-size:var(--t-hero);font-weight:700;letter-spacing:-.01em;margin:0;line-height:1.15;max-width:12em}
 #empty[hidden]{display:none}
@@ -62,7 +61,9 @@ nav#tray{background:var(--surface);-webkit-backdrop-filter:blur(24px);backdrop-f
 .tool svg{color:var(--text)}
 .tool:active,.tool.on{background:var(--fill)}
 .tool.danger,.tool.danger svg{color:var(--danger)}
-.croprow{display:flex;align-items:center;gap:12px;width:100%;max-width:520px;padding:0 6px;font-weight:600}
+.croprow{display:flex;align-items:center;gap:8px;width:100%;max-width:520px;padding:0 4px;font-weight:600}
+.croprow .btn{padding:0 12px;font-size:var(--t-body)}
+.croprow .val{min-width:44px}
 .croprow input{flex:1}
 
 #sheet{position:fixed;left:0;right:0;bottom:calc(-1 * var(--fix,0px));z-index:5;background:var(--surface);-webkit-backdrop-filter:blur(30px) saturate(1.4);backdrop-filter:blur(30px) saturate(1.4);border-radius:var(--r-l) var(--r-l) 0 0;border-top:1px solid var(--hair);padding:0 16px calc(18px + env(safe-area-inset-bottom));max-height:58dvh;overflow:auto;transform:translateY(calc(100% + 24px));visibility:hidden;transition:transform .38s var(--ease),visibility 0s .38s}
@@ -115,6 +116,29 @@ textarea{width:100%;font:inherit;font-size:17px;color:var(--text);background:var
 .strip-actions .btn{flex:1;padding:0 8px;font-size:var(--t-body)}
 .strip-actions .btn.icon{flex:0 0 44px;background:var(--fill)}
 .btn.danger{color:var(--danger)}
+#rail{position:absolute;left:0;right:0;bottom:8px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:4px 16px;justify-content:safe center}
+#rail::-webkit-scrollbar{display:none}
+#rail[hidden]{display:none}
+#rail button{flex:none;width:44px;border-radius:6px;overflow:hidden;opacity:.5;display:block;background:var(--fill)}
+#rail button[aria-current=true]{opacity:1;box-shadow:0 0 0 2px var(--ground),0 0 0 3.5px var(--sel)}
+#rail canvas{width:100%;display:block}
+#rail .add{opacity:1;display:grid;place-items:center;color:var(--text-2);font-size:22px}
+#projects{position:fixed;inset:0;bottom:calc(-1 * var(--fix,0px));z-index:8;background:var(--ground);overflow:auto;padding:calc(14px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))}
+#projects[hidden]{display:none}
+.ph{display:flex;align-items:center;gap:8px;margin-bottom:18px}
+.ph h1{font-size:var(--t-hero);letter-spacing:-.01em;margin:0;flex:1}
+.ph .btn{font-size:var(--t-body)}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.pcard{position:relative}
+.pcard > button:first-child{display:block;width:100%;text-align:left;border-radius:var(--r-m);overflow:hidden;background:var(--fill)}
+.pcard img{width:100%;display:block;aspect-ratio:4/5;object-fit:cover;background:#fff}
+.pcard span{display:block;padding:8px 10px 10px;font-size:var(--t-cap);color:var(--text-2)}
+.pcard b{display:block;color:var(--text);font-size:var(--t-body);font-weight:600}
+.pdel{position:absolute;top:4px;right:4px;width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.65);color:var(--danger);display:none;place-items:center}
+#projects.editing .pdel{display:grid}
+.pempty{color:var(--text-2);margin-top:40px;text-align:center}
+#toast.act{pointer-events:auto}
+.toast-act{color:var(--acc);font-weight:700;margin-left:12px;min-height:32px}
 .warn{margin:14px 0 0;color:var(--danger)}
 .prog{height:4px;background:var(--fill);border-radius:2px;overflow:hidden;margin:18px 0 6px}
 .prog div{height:100%;background:var(--acc);transform:scaleX(0);transform-origin:left;transition:transform .2s linear}
@@ -141,21 +165,21 @@ textarea{width:100%;font:inherit;font-size:17px;color:var(--text);background:var
 </head>
 <body>
 <header>
+  <button class="btn icon" id="projectsBtn" aria-label="Your carousels"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></button>
   <button class="btn icon" id="undo" aria-label="Undo"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
   <button class="btn icon" id="redo" aria-label="Redo"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5m5 5H10a6 6 0 0 0 0 12h3"/></svg></button>
-  <div class="seg ratios" role="group" aria-label="Post shape">
-    <button data-r="1:1">1:1</button><button data-r="4:5">4:5</button><button data-r="3:4">3:4</button>
-  </div>
+  <span class="spacer"></span>
   <button class="btn icon" id="previewBtn" aria-label="Preview post"><svg viewBox="0 0 24 24"><path d="M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg></button>
   <button class="btn" id="exportBtn">Export</button>
 </header>
 <main id="stage">
   <canvas id="cv" aria-label="Carousel canvas"></canvas>
   <div class="zoom"><button id="zout" aria-label="Zoom out">−</button><button id="zfit">Fit</button><button id="zin" aria-label="Zoom in">+</button></div>
-  <div id="count" aria-live="polite"></div>
+  <div id="rail" hidden></div>
   <div id="empty"><h1>Make a carousel</h1><p>Photos and videos go one per slide. Drag them across the cut marks to run one picture over two slides.</p><button class="btn" id="emptyAdd">Add photos and videos</button></div>
 </main>
 <nav id="tray"></nav>
+<div id="projects" hidden><div class="ph"><h1>Carousels</h1><button class="btn quiet" id="pEdit">Edit</button><button class="btn" id="pNew">New</button></div><div class="pgrid" id="pgrid"></div></div>
 <div id="sheet" role="dialog" aria-modal="false"></div>
 <div class="modal" id="modal"></div>
 <div id="toast" role="status"></div>
@@ -190,7 +214,7 @@ const pad = n => String(n).padStart(2, '0');
 let S = {ratio:'4:5', slides:3, bg:{type:'solid', c1:'#ffffff', c2:'#ffffff'}, items:[]};
 const media = new Map(); // mediaId -> {id, kind, el, w, h, dur}; kept forever so undo can restore deleted items
 const W = () => RATIOS[S.ratio][0], H = () => RATIOS[S.ratio][1];
-let sel = null, cropMode = false, view = {x:0, y:0, z:.3}, guides = [], dirty = true, exporting = false;
+let trayMode = null, sel = null, cropMode = false, view = {x:0, y:0, z:.3}, guides = [], dirty = true, exporting = false;
 let dpr = 1, SW = 0, SH = 0, fitted = false;
 const getSel = () => S.items.find(i => i.id === sel) || null;
 const frameOverride = new Map(); // mediaId -> exact decoded frame, used during export
@@ -204,13 +228,13 @@ function commit(){
   const now = JSON.stringify(S);
   if (now === lastSaved) return;
   hist.push(lastSaved); if (hist.length > 80) hist.shift();
-  lastSaved = now; fut = []; updUI();
+  lastSaved = now; fut = []; updUI(); scheduleSave(); scheduleRail();
 }
 function undoRedo(from, to){
   commit(); if (!from.length) return;
   to.push(lastSaved); lastSaved = from.pop(); S = JSON.parse(lastSaved);
   if (!getSel()) { sel = null; cropMode = false; }
-  closeSheet(false); updUI();
+  closeSheet(false); updUI(); scheduleSave(); scheduleRail();
 }
 
 /* ---------- geometry ---------- */
@@ -384,7 +408,23 @@ function render(){
   ctx.restore();
 }
 let countTxt = '';
-function updCount(){ const t = S.items.length ? `${curSlide() + 1} / ${S.slides}` : ''; if (t !== countTxt) { countTxt = t; $('#count').textContent = t; $('#count').hidden = !t; } }
+// Always-visible slide thumbnails under the canvas: tap to jump, + adds a slide at the end.
+function updCount(){ const c = String(S.items.length ? curSlide() : -1); if (c !== countTxt) { countTxt = c; $('#rail').querySelectorAll('[data-go]').forEach(b => b.setAttribute('aria-current', b.dataset.go === c)); } }
+let railT;
+function scheduleRail(){ clearTimeout(railT); railT = setTimeout(buildRail, 120); }
+function buildRail(){
+  const r = $('#rail'); r.hidden = !S.items.length; if (r.hidden) return;
+  const tw = 72, th = Math.round(tw * H() / W());
+  r.innerHTML = Array.from({length:S.slides}, (_, i) => `<button data-go="${i}" aria-label="Go to slide ${i + 1}"><canvas width="${tw}" height="${th}"></canvas></button>`).join('')
+    + (S.slides < MAX_SLIDES ? `<button class="add" data-addslide aria-label="Add a slide" style="height:${Math.round(44 * H() / W())}px">+</button>` : '');
+  r.querySelectorAll('canvas').forEach((c, i) => renderSlide(ctx2d(c), i, c.width / W()));
+  countTxt = ''; updCount();
+}
+$('#rail').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.go !== undefined) { glideTo(+b.dataset.go); tick(); }
+  else if ('addslide' in b.dataset) { S.slides++; commit(); fit(S.slides - 1); tick(); }
+});
 const hasVideo = () => S.items.some(i => i.type === 'video');
 (function loop(){ if (!exporting && (dirty || hasVideo())) { render(); updCount(); dirty = false; } requestAnimationFrame(loop); })();
 
@@ -403,8 +443,9 @@ function fit(focus){
   const tw = S.slides * W(), h = H(), avail = SH - reserve;
   if (focus === undefined) focus = getSel() ? slideOf(getSel()) : curSlide();
   const wFit = SW < 600 ? (SW - 40) / W() : Math.max((SW - 64) / tw, (SW - 64) / (W() * 1.25));
-  view.z = fitZ = Math.min((avail - 72) / h, wFit);
-  view.y = -(avail / view.z - h) / 2;
+  const railH = S.items.length && !reserve ? 66 : 0;
+  view.z = fitZ = Math.min((avail - 72 - railH) / h, wFit);
+  view.y = -((avail - railH) / view.z - h) / 2;
   if (tw * view.z < SW) view.x = -(SW / view.z - tw) / 2; else showSlide(clamp(focus, 0, S.slides - 1));
   dirty = true;
 }
@@ -598,9 +639,9 @@ function resizeBy(it, i0, hd, wx, wy){
 }
 
 /* ---------- media ---------- */
-function loadMedia(f){
+function loadMedia(f, id = uid()){
   return new Promise((res, rej) => {
-    const url = URL.createObjectURL(f), id = uid();
+    const url = URL.createObjectURL(f);
     if (f.type.startsWith('video')) {
       const v = document.createElement('video');
       v.muted = true; v.loop = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto';
@@ -648,6 +689,7 @@ async function addFiles(files){
   for (const f of [...files]) {
     const m = await loadMedia(f).catch(() => null);
     if (!m) { toast(`Couldn't open ${f.name}`); continue; }
+    storeMedia(m.id, m.kind, f);
     if (slot >= S.slides) { if (S.slides < MAX_SLIDES) S.slides = slot + 1; else toast('Instagram allows up to 20 slides'); }
     const s = Math.min(slot++, S.slides - 1), k = Math.min(W() * .84 / m.w, H() * .84 / m.h);
     S.items.push({id:uid(), type:m.kind, mediaId:m.id, x:s * W() + W() / 2, y:H() / 2, w:m.w * k, h:m.h * k, rot:0,
@@ -699,7 +741,7 @@ function act(name){
   if (name === 'text') return addText();
   if (name === 'bg') return sheetBg();
   if (name === 'slides') { slideSel = getSel() ? slideOf(getSel()) : curSlide(); return sheetSlides(); } // match the slide the view will show
-  if (name === 'border') return sheetBorder();
+  if (name === 'border') { const linked = getSel() ? getSel().bp : S.items.some(i => i.bp); if (linked) { closeSheet(); trayMode = 'border'; return updUI(); } return sheetBorder(); } // already bordered: just the slider
   if (name === 'more') return sheetMore();
   if (!it) return;
   if (name === 'crop') { cropMode = true; closeSheet(); }
@@ -709,7 +751,7 @@ function act(name){
   if (name === 'up' && idx < S.items.length - 1) S.items.splice(idx + 1, 0, S.items.splice(idx, 1)[0]);
   if (name === 'down' && idx > 0) S.items.splice(idx - 1, 0, S.items.splice(idx, 1)[0]);
   if (name === 'dup') { const c = {...it, id:uid(), x:it.x + 40, y:it.y + 40}; S.items.push(c); sel = c.id; }
-  if (name === 'del') { S.items.splice(idx, 1); sel = null; cropMode = false; closeSheet(); }
+  if (name === 'del') { S.items.splice(idx, 1); sel = null; cropMode = false; closeSheet(); commit(); updUI(); return toast('Deleted', true); }
   commit(); updUI();
 }
 
@@ -736,11 +778,20 @@ const ic = n => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[n]}</svg>`;
 function updUI(){
   dirty = true;
   $('#undo').disabled = !hist.length; $('#redo').disabled = !fut.length;
-  document.querySelectorAll('.ratios button').forEach(b => b.setAttribute('aria-pressed', b.dataset.r === S.ratio));
   $('#empty').hidden = S.items.length > 0;
   const it = getSel();
+  if (trayMode === 'border') {
+    const pct = BORDER.unit === '%', max = pct ? 20 : 200, step = pct ? .5 : 1, unit = v => pct ? `${v}%` : `${v} px`;
+    tray.innerHTML = `<div class="croprow"><input type="range" id="bq" min="0" max="${max}" step="${step}" value="${Math.min(BORDER.v, max)}" aria-label="Border thickness"><span class="val" id="bqv">${unit(BORDER.v)}</span>
+      <button class="btn quiet" id="bmore">More</button><button class="btn" id="bdone">Done</button></div>`;
+    $('#bq').oninput = e => { tickOnStep(e.target); BORDER.v = +e.target.value; $('#bqv').textContent = unit(BORDER.v); saveBorder(); reborder(); };
+    $('#bq').onchange = commit;
+    $('#bmore').onclick = () => { trayMode = null; updUI(); sheetBorder(); };
+    $('#bdone').onclick = () => { trayMode = null; updUI(); };
+    return;
+  }
   if (it && cropMode) {
-    tray.innerHTML = `<div class="croprow"><span>Zoom</span><input type="range" id="cz" min="100" max="500" step="1" value="${Math.round(it.zoom * 100)}" aria-label="Zoom inside frame"><span class="val" id="czv">${Math.round(it.zoom * 100)}%</span>
+    tray.innerHTML = `<div class="croprow"><input type="range" id="cz" min="100" max="500" step="1" value="${Math.round(it.zoom * 100)}" aria-label="Zoom inside frame"><span class="val" id="czv">${Math.round(it.zoom * 100)}%</span>
       <button class="btn quiet" id="creset">Reset</button><button class="btn" id="cdone">Done</button></div>`;
     $('#cz').oninput = e => { it.zoom = +e.target.value / 100; $('#czv').textContent = e.target.value + '%'; tickOnStep(e.target); dirty = true; };
     $('#cz').onchange = commit;
@@ -756,11 +807,12 @@ function updUI(){
   tray.innerHTML = tools.map(([icn, label, a]) => `<button class="tool" data-a="${a || icn}">${ic(icn)}${label}</button>`).join('');
 }
 tray.addEventListener('click', e => { const b = e.target.closest('[data-a]'); if (b) act(b.dataset.a); });
-document.querySelectorAll('.ratios button').forEach(b => b.onclick = () => {
-  const k = RATIOS[b.dataset.r][1] / H(); S.ratio = b.dataset.r;
+function setRatio(r){
+  const k = RATIOS[r][1] / H(); S.ratio = r;
   for (const it of S.items) it.y *= k;
+  try { localStorage.setItem('seam.ratio', r); } catch {}
   reborder(); commit(); fit(); updUI();
-});
+}
 $('#undo').onclick = () => undoRedo(hist, fut);
 $('#redo').onclick = () => undoRedo(fut, hist);
 $('#zin').onclick = () => zoomAt(SW / 2, SH / 2, 1.25);
@@ -779,7 +831,7 @@ document.addEventListener('keydown', e => {
     e.preventDefault(); commit(); dirty = true;
   }
 });
-window.addEventListener('beforeunload', e => { if (S.items.length) { e.preventDefault(); e.returnValue = ''; } });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { clearTimeout(saveT); saveProject(); } }); // save when leaving the app
 // Haptics: Android has navigator.vibrate; iPhone Safari (iOS 18+) gives a system tick when a switch-style checkbox
 // is toggled through its label, so tap a hidden one. Elsewhere this does nothing.
 const hapLabel = (() => { const l = document.createElement('label'), i = document.createElement('input');
@@ -787,7 +839,7 @@ const hapLabel = (() => { const l = document.createElement('label'), i = documen
 function tick(){ try { if (navigator.vibrate) navigator.vibrate(6); else hapLabel.click(); } catch {} }
 function tickOnStep(input){ if (input._last !== input.value) { if (input._last !== undefined) tick(); input._last = input.value; } }
 // Home-screen web apps keep running an old copy; check for a newer deploy whenever the app comes back to the front.
-const BUILD = '20261123-12';
+const BUILD = '20261124-1';
 let liveBuild = '';
 async function checkUpdate(){
   try {
@@ -797,7 +849,7 @@ async function checkUpdate(){
   } catch {}
 }
 // a fresh ?v= URL skips the 10-minute browser cache that a plain reload would hit
-$('#update').onclick = () => { if (!S.items.length || confirm('Updating reloads the page and clears this carousel. Update now?')) location.replace(location.pathname + '?v=' + liveBuild); };
+$('#update').onclick = async () => { await saveProject(); try { if (projectId) sessionStorage.setItem('seam.resume', projectId); } catch {} location.replace(location.pathname + '?v=' + liveBuild); };
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
 checkUpdate();
 // iOS home-screen apps draw under the status bar but report the viewport that much shorter (screen 852, inner 793 = 59pt
@@ -811,7 +863,11 @@ function fixHeight(){
 }
 fixHeight(); addEventListener('resize', fixHeight);
 let toastT;
-function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2200); }
+function toast(msg, undo){
+  const t = $('#toast'); t.textContent = msg; t.classList.toggle('act', !!undo);
+  if (undo) { const b = document.createElement('button'); b.className = 'toast-act'; b.textContent = 'Undo'; b.onclick = () => { undoRedo(hist, fut); t.classList.remove('show', 'act'); }; t.append(b); }
+  t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show', 'act'), undo ? 4000 : 2200);
+}
 
 /* ---------- sheets ---------- */
 let sheetFn = null;
@@ -873,11 +929,13 @@ function slideOp(op){
     S.items = S.items.filter(it => slideOf(it) !== i); moveSlides(s => s > i ? s - 1 : s); S.slides--; slideSel = Math.min(i, S.slides - 1); sel = null; }
   else return;
   tick(); commit(); updUI(); fit(slideSel); refresh();
+  if (op === 'del') toast('Slide deleted', true);
 }
 function sheetSlides(){
   slideSel = clamp(slideSel, 0, S.slides - 1);
   const tw = 64, th = Math.round(tw * H() / W());
-  openSheet(sheetSlides, 'Slides', `<div class="thumbs strip" style="margin-top:0">${Array.from({length:S.slides}, (_, i) =>
+  openSheet(sheetSlides, 'Slides', `${seg('r', [['1:1','1:1'],['4:5','4:5'],['3:4','3:4']], S.ratio, 'Post shape')}
+    <div style="height:12px"></div><div class="thumbs strip" style="margin-top:0">${Array.from({length:S.slides}, (_, i) =>
       `<button data-pick="${i}" aria-label="Slide ${i + 1}" aria-pressed="${i === slideSel}"><canvas width="${tw * 2}" height="${th * 2}" data-i="${i}"></canvas><span>${i + 1}</span></button>`).join('')}</div>
     <div class="actions strip-actions">
       <button class="btn quiet icon" data-slideop="left" aria-label="Move slide left"${slideSel ? '' : ' disabled'}><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
@@ -935,6 +993,7 @@ sheet.addEventListener('click', e => {
   else if (d.bgtype) S.bg.type = d.bgtype;
   else if (d.pick !== undefined) { slideSel = +d.pick; glideTo(slideSel); tick(); return refresh(); }
   else if (d.slideop) return slideOp(d.slideop);
+  else if (d.r) { setRatio(d.r); return refresh(); }
   else if (d.guide) { GUIDE.mode = d.guide; try { localStorage.setItem('seam.guides', JSON.stringify(GUIDE)); } catch {} dirty = true; return refresh(); }
   else if (it && d.font) it.font = d.font;
   else if (it && d.weight) it.weight = +d.weight;
@@ -987,6 +1046,7 @@ function openExport(){
   modal.classList.add('open');
   modal.querySelectorAll('#res canvas').forEach(c => renderSlide(ctx2d(c), +c.dataset.i, c.width / w));
   $('#ego').onclick = () => runExport().catch(err => { exporting = false; $('#pstat').textContent = 'Export stopped: ' + err.message; console.error(err); });
+  $('#ego').click(); // export starts right away; the share sheet still needs its own tap (iOS rule)
 }
 modal.addEventListener('click', e => { if (e.target.closest('[data-close]')) closeModal(); });
 $('#exportBtn').onclick = () => S.items.length ? openExport() : toast('Add some photos or videos first');
@@ -1129,6 +1189,96 @@ function showResults(out){
   if (canShare) $('#eshare').onclick = () => navigator.share({files}).catch(e => { if (e.name !== 'AbortError') toast('Couldn’t open sharing. Use Download instead.'); });
 }
 
+/* ---------- projects: everything saves on this phone as you go ---------- */
+let projectId = null, projectCreated = 0, saveT;
+const idbOpen = (() => { let p; return () => p ||= new Promise((res, rej) => {
+  const r = indexedDB.open('seam', 1);
+  r.onupgradeneeded = () => { r.result.createObjectStore('projects', {keyPath:'id'}); r.result.createObjectStore('media', {keyPath:'id'}); };
+  r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+}); })();
+async function idb(store, mode, fn){
+  const db = await idbOpen();
+  return new Promise((res, rej) => { const tx = db.transaction(store, mode), req = fn(tx.objectStore(store));
+    tx.oncomplete = () => res(req && 'result' in req ? req.result : undefined); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error); });
+}
+const saveFailed = () => toast('Couldn’t save. Your phone may be low on space.');
+function storeMedia(id, kind, f){ idb('media', 'readwrite', st => st.put({id, kind, blob:f, name:f.name, type:f.type})).catch(saveFailed); }
+function scheduleSave(){ clearTimeout(saveT); saveT = setTimeout(saveProject, 600); }
+async function saveProject(){
+  if (!S.items.length && !projectId) return; // nothing worth keeping yet
+  projectId ||= uid(); projectCreated ||= Date.now();
+  const c = mkCanvas(240, Math.round(240 * H() / W())); renderSlide(ctx2d(c), 0, 240 / W());
+  const rec = {id:projectId, created:projectCreated, updated:Date.now(), state:JSON.stringify(S), thumb:c.toDataURL('image/jpeg', .8),
+    mediaIds:[...new Set(S.items.filter(i => i.mediaId).map(i => i.mediaId))]};
+  try { await idb('projects', 'readwrite', st => st.put(rec)); } catch { saveFailed(); }
+}
+function clearMedia(){
+  for (const m of media.values()) { if (m.kind === 'video') { m.el.pause(); m.el.remove(); } URL.revokeObjectURL(m.el.src); }
+  media.clear(); audioSrc.clear();
+}
+function resetEditor(state){
+  S = state; hist = []; fut = []; lastSaved = JSON.stringify(S); sel = null; cropMode = false; trayMode = null;
+  closeSheet(false); fit(0); updUI(); buildRail();
+}
+function newProject(){
+  clearTimeout(saveT); saveProject();
+  let ratio = '4:5'; try { ratio = localStorage.getItem('seam.ratio') || ratio; } catch {}
+  clearMedia(); projectId = null; projectCreated = 0;
+  resetEditor({ratio: RATIOS[ratio] ? ratio : '4:5', slides:3, bg:{type:'solid', c1:'#ffffff', c2:'#ffffff'}, items:[]});
+  $('#projects').hidden = true;
+}
+async function openProject(id){
+  const rec = await idb('projects', 'readonly', st => st.get(id)).catch(() => null); if (!rec) return;
+  clearMedia();
+  for (const mid of rec.mediaIds) {
+    const mr = await idb('media', 'readonly', st => st.get(mid)).catch(() => null);
+    if (mr) await loadMedia(new File([mr.blob], mr.name || 'media', {type: mr.type || mr.blob.type}), mid).catch(() => {});
+  }
+  const state = JSON.parse(rec.state);
+  state.items = state.items.filter(it => it.type === 'text' || media.has(it.mediaId)); // skip anything whose file is gone
+  projectId = rec.id; projectCreated = rec.created;
+  resetEditor(state); $('#projects').hidden = true;
+}
+function when(t){
+  const d = new Date(t), now = new Date(), day = 864e5, time = d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+  if (d.toDateString() === now.toDateString()) return `Today, ${time}`;
+  if (d.toDateString() === new Date(now - day).toDateString()) return `Yesterday, ${time}`;
+  return d.toLocaleDateString([], {month:'short', day:'numeric'});
+}
+async function showProjects(){
+  clearTimeout(saveT); await saveProject();
+  const list = (await idb('projects', 'readonly', st => st.getAll()).catch(() => [])).sort((a, b) => b.updated - a.updated);
+  const p = $('#projects'); p.classList.remove('editing'); $('#pEdit').textContent = 'Edit'; $('#pEdit').hidden = !list.length;
+  $('#pgrid').innerHTML = list.length ? list.map(r => { const st = JSON.parse(r.state);
+    return `<div class="pcard"><button data-open="${r.id}"><img src="${r.thumb}" alt=""><span><b>${st.slides} slide${st.slides > 1 ? 's' : ''}</b>${when(r.updated)}</span></button>
+      <button class="pdel" data-del="${r.id}" aria-label="Delete this carousel"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button></div>`; }).join('')
+    : '<p class="pempty">Your carousels save here automatically.</p>';
+  p.hidden = false;
+}
+$('#projectsBtn').onclick = showProjects;
+$('#pNew').onclick = newProject;
+$('#pEdit').onclick = () => { const on = $('#projects').classList.toggle('editing'); $('#pEdit').textContent = on ? 'Done' : 'Edit'; };
+$('#pgrid').addEventListener('click', async e => {
+  const o = e.target.closest('[data-open]'), d = e.target.closest('[data-del]');
+  if (d) {
+    if (!confirm('Delete this carousel? This can’t be undone.')) return;
+    const all = await idb('projects', 'readonly', st => st.getAll()), gone = all.find(r => r.id === d.dataset.del);
+    const keep = new Set(all.filter(r => r.id !== gone.id).flatMap(r => r.mediaIds));
+    await idb('projects', 'readwrite', st => st.delete(gone.id));
+    for (const mid of gone.mediaIds) if (!keep.has(mid)) await idb('media', 'readwrite', st => st.delete(mid)).catch(() => {}); // free photos no other carousel uses
+    if (gone.id === projectId) { projectId = null; newProject(); }
+    return showProjects();
+  }
+  if (o && !$('#projects').classList.contains('editing')) openProject(o.dataset.open);
+});
+async function boot(){
+  try { navigator.storage?.persist?.(); } catch {}
+  let resume = null; try { resume = sessionStorage.getItem('seam.resume'); sessionStorage.removeItem('seam.resume'); } catch {}
+  if (resume) return openProject(resume);
+  const n = await idb('projects', 'readonly', st => st.count()).catch(() => 0);
+  if (n) showProjects();
+}
+
 /* ---------- self-check (open with #test) ---------- */
 function selfTest(){
   const a = (c, m) => { if (!c) throw new Error('selftest failed: ' + m); };
@@ -1144,6 +1294,7 @@ function selfTest(){
 }
 if (location.hash === '#test') selfTest();
 updUI();
+boot();
 </script>
 </body>
 </html>
