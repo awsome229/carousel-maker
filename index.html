@@ -23,7 +23,7 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--ground);color:var(--text);font:var(--t-body)/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;overscroll-behavior:none;-webkit-font-smoothing:antialiased}
-body{display:flex;flex-direction:column;height:calc(100dvh + var(--fix,0px));overflow:hidden;user-select:none;-webkit-user-select:none}
+body{display:flex;flex-direction:column;height:var(--app-h,100dvh);overflow:hidden;user-select:none;-webkit-user-select:none}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
@@ -839,7 +839,7 @@ const hapLabel = (() => { const l = document.createElement('label'), i = documen
 function tick(){ try { if (navigator.vibrate) navigator.vibrate(6); else hapLabel.click(); } catch {} }
 function tickOnStep(input){ if (input._last !== input.value) { if (input._last !== undefined) tick(); input._last = input.value; } }
 // Home-screen web apps keep running an old copy; check for a newer deploy whenever the app comes back to the front.
-const BUILD = '20261124-1';
+const BUILD = '20261124-2';
 let liveBuild = '';
 async function checkUpdate(){
   try {
@@ -855,13 +855,16 @@ checkUpdate();
 // iOS home-screen apps draw under the status bar but report the viewport that much shorter (screen 852, inner 793 = 59pt
 // status bar), leaving a strip at the bottom. Measure the shortfall and grow the app by it; 0 wherever iOS reports correctly.
 function fixHeight(){
-  const probe = document.createElement('div'); probe.style.cssText = 'position:fixed;padding-top:env(safe-area-inset-top);visibility:hidden';
-  document.body.append(probe); const top = parseFloat(getComputedStyle(probe).paddingTop) || 0; probe.remove();
+  const root = document.documentElement.style;
+  if (!navigator.standalone) { root.removeProperty('--app-h'); root.removeProperty('--fix'); return; }
+  // A home-screen app always fills the screen, so size to the screen itself rather than to iOS's (sometimes stale) viewport.
   const full = innerWidth < innerHeight ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
-  const short = full - innerHeight;
-  document.documentElement.style.setProperty('--fix', (navigator.standalone && short > 0 && short <= top + 1 ? short : 0) + 'px');
+  root.setProperty('--app-h', full + 'px');
+  root.setProperty('--fix', Math.max(0, full - innerHeight) + 'px'); // how far fixed panels must reach below iOS's viewport
 }
 fixHeight(); addEventListener('resize', fixHeight);
+let lastIH = innerHeight; // iOS can change the viewport height without a resize event, so re-check every frame (cheap)
+(function watchIH(){ if (innerHeight !== lastIH) { lastIH = innerHeight; fixHeight(); } requestAnimationFrame(watchIH); })();
 let toastT;
 function toast(msg, undo){
   const t = $('#toast'); t.textContent = msg; t.classList.toggle('act', !!undo);
