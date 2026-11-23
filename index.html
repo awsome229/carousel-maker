@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Seam">
 <meta name="theme-color" content="#1c1d1f">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -126,6 +126,8 @@ textarea{width:100%;font:inherit;font-size:17px;color:var(--text);background:var
 .count{position:absolute;margin:10px;right:0;background:rgba(0,0,0,.6);color:#fff;font-size:var(--t-cap);border-radius:10px;padding:2px 8px;font-variant-numeric:tabular-nums}
 
 #toast{position:fixed;left:50%;top:calc(60px + env(safe-area-inset-top));transform:translate(-50%,-12px);background:var(--sel);color:var(--sel-text);padding:10px 16px;border-radius:var(--r-m);font-weight:600;opacity:0;transition:opacity .2s,transform .3s var(--ease);pointer-events:none;z-index:20;max-width:90vw;text-align:center}
+#update{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+#update[hidden]{display:none}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 #vids{position:fixed;width:2px;height:2px;opacity:.01;pointer-events:none;overflow:hidden;left:0;top:0}
 @media (prefers-reduced-motion:reduce){#sheet,#toast{transition:none}}
@@ -151,6 +153,7 @@ textarea{width:100%;font:inherit;font-size:17px;color:var(--text);background:var
 <div id="sheet" role="dialog" aria-modal="false"></div>
 <div class="modal" id="modal"></div>
 <div id="toast" role="status"></div>
+<button class="btn" id="update" hidden>New version. Tap to update</button>
 <div id="vids"></div>
 <input type="file" id="file" accept="image/*,video/*" multiple hidden>
 <script>
@@ -748,6 +751,20 @@ const hapLabel = (() => { const l = document.createElement('label'), i = documen
   i.type = 'checkbox'; i.setAttribute('switch', ''); l.append(i); l.style.display = 'none'; l.setAttribute('aria-hidden', 'true'); document.body.append(l); return l; })();
 function tick(){ try { if (navigator.vibrate) navigator.vibrate(6); else hapLabel.click(); } catch {} }
 function tickOnStep(input){ if (input._last !== input.value) { if (input._last !== undefined) tick(); input._last = input.value; } }
+// Home-screen web apps keep running an old copy; check for a newer deploy whenever the app comes back to the front.
+const BUILD = '20261123-1';
+let liveBuild = '';
+async function checkUpdate(){
+  try {
+    const t = await (await fetch(location.pathname + '?check=' + Date.now(), {cache:'no-store'})).text();
+    const live = (t.match(/const BUILD = '([^']+)'/) || [])[1];
+    if (live && live !== BUILD) { liveBuild = live; $('#update').hidden = false; }
+  } catch {}
+}
+// a fresh ?v= URL skips the 10-minute browser cache that a plain reload would hit
+$('#update').onclick = () => { if (!S.items.length || confirm('Updating reloads the page and clears this carousel. Update now?')) location.replace(location.pathname + '?v=' + liveBuild); };
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
+checkUpdate();
 let toastT;
 function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2200); }
 
