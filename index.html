@@ -251,9 +251,14 @@ function drawGuides(ctx, px){
     if (GUIDE.mode === 'centre') lines.push([x0 + w / 2, 0, x0 + w / 2, h], [x0, h / 2, x0 + w, h / 2]);
     if (GUIDE.mode === 'thirds') for (const f of [1 / 3, 2 / 3]) lines.push([x0 + w * f, 0, x0 + w * f, h], [x0, h * f, x0 + w, h * f]);
   }
-  if (GUIDE.mode === 'grid') { const gw = Math.min(w, h * 3 / 4), gh = Math.min(h, w * 4 / 3), gx = (w - gw) / 2, gy = (h - gh) / 2;
-    lines.push([gx, gy, gx + gw, gy], [gx + gw, gy, gx + gw, gy + gh], [gx + gw, gy + gh, gx, gy + gh], [gx, gy + gh, gx, gy]); }
-  ctx.save(); ctx.setLineDash(GUIDE.mode === 'grid' ? [8 * px, 6 * px] : []);
+  if (GUIDE.mode === 'grid') { // dim what the profile grid cuts off, so even a thin 4:5 crop is obvious
+    const gw = Math.min(w, h * 3 / 4), gh = Math.min(h, w * 4 / 3), gx = (w - gw) / 2, gy = (h - gh) / 2;
+    ctx.save(); ctx.fillStyle = 'rgba(0,0,0,.45)';
+    for (let k = 0; k < S.slides; k++) { const x0 = k * w;
+      ctx.fillRect(x0, 0, gx, h); ctx.fillRect(x0 + gx + gw, 0, gx, h); ctx.fillRect(x0 + gx, 0, gw, gy); ctx.fillRect(x0 + gx, gy + gh, gw, gy);
+      lines.push([x0 + gx, 0, x0 + gx, h], [x0 + gx + gw, 0, x0 + gx + gw, h]); if (gy) lines.push([x0, gy, x0 + w, gy], [x0, gy + gh, x0 + w, gy + gh]); }
+    ctx.restore(); }
+  ctx.save();
   for (const [stroke, lw] of [['rgba(0,0,0,.35)', 3 * px], ['rgba(255,255,255,.8)', 1 * px]]) { // dark under light: visible on any photo
     ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.beginPath();
     for (const [a, b, c, d] of lines) { ctx.moveTo(a, b); ctx.lineTo(c, d); } ctx.stroke();
@@ -347,6 +352,7 @@ function render(){
   ctx.setLineDash([]); ctx.strokeStyle = 'rgba(242,242,240,.7)'; ctx.lineWidth = 1.25 * px;
   for (let k = 0; k <= S.slides; k++) { ctx.beginPath(); ctx.moveTo(k * w, -8 * px); ctx.lineTo(k * w, -22 * px); ctx.moveTo(k * w, h + 8 * px); ctx.lineTo(k * w, h + 22 * px); ctx.stroke(); }
   ctx.restore();
+  if (GUIDE.mode !== 'off') drawGuides(ctx, px); // under the selection handles, so they stay grabbable-looking
   const it = getSel();
   if (it) {
     ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(it.rot);
@@ -373,7 +379,6 @@ function render(){
     }
     ctx.restore();
   }
-  if (GUIDE.mode !== 'off') drawGuides(ctx, px);
   ctx.save(); ctx.strokeStyle = '#ff4fa3'; ctx.lineWidth = 1.5 * px;
   for (const g of guides) { ctx.beginPath(); if ('x' in g) { ctx.moveTo(g.x, -30 * px); ctx.lineTo(g.x, h + 30 * px); } else { ctx.moveTo(-30 * px, g.y); ctx.lineTo(tw + 30 * px, g.y); } ctx.stroke(); }
   ctx.restore();
@@ -693,7 +698,7 @@ function act(name){
   if (name === 'media') return $('#file').click();
   if (name === 'text') return addText();
   if (name === 'bg') return sheetBg();
-  if (name === 'slides') { slideSel = curSlide(); return sheetSlides(); }
+  if (name === 'slides') { slideSel = getSel() ? slideOf(getSel()) : curSlide(); return sheetSlides(); } // match the slide the view will show
   if (name === 'border') return sheetBorder();
   if (name === 'more') return sheetMore();
   if (!it) return;
@@ -782,7 +787,7 @@ const hapLabel = (() => { const l = document.createElement('label'), i = documen
 function tick(){ try { if (navigator.vibrate) navigator.vibrate(6); else hapLabel.click(); } catch {} }
 function tickOnStep(input){ if (input._last !== input.value) { if (input._last !== undefined) tick(); input._last = input.value; } }
 // Home-screen web apps keep running an old copy; check for a newer deploy whenever the app comes back to the front.
-const BUILD = '20261123-11';
+const BUILD = '20261123-12';
 let liveBuild = '';
 async function checkUpdate(){
   try {
@@ -881,7 +886,7 @@ function sheetSlides(){
       <button class="btn quiet danger" data-slideop="del">Delete</button></div>
     <p class="cap">${S.slides} of 20 slides. New and Duplicate go after slide ${slideSel + 1}.</p>
     <div class="sec">Guides</div>${seg('guide', [['off','Off'],['centre','Centre'],['thirds','Thirds'],['grid','Grid crop']], GUIDE.mode, 'Guides')}
-    ${GUIDE.mode === 'grid' ? '<p class="cap">The dashed box is what your profile grid shows of each slide.</p>' : ''}`);
+    ${GUIDE.mode === 'grid' ? '<p class="cap">The darkened edges are cut off in your profile grid.</p>' : ''}`);
   sheet.querySelectorAll('.strip canvas').forEach(c => renderSlide(ctx2d(c), +c.dataset.i, c.width / W()));
 }
 function sheetStyle(){
