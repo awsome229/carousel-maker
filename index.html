@@ -33,6 +33,7 @@ svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke
 .btn{min-height:44px;padding:0 18px;border-radius:var(--r-m);background:var(--acc);color:#fff;font-weight:600;font-size:var(--t-title);display:inline-flex;align-items:center;justify-content:center;gap:6px}
 .btn.quiet{background:var(--fill);color:var(--text)}
 .btn:disabled{opacity:.35;cursor:default}
+.btn[hidden]{display:none}
 .btn.icon{width:44px;padding:0;background:none}
 .btn.icon:disabled{opacity:.3}
 
@@ -140,6 +141,10 @@ textarea{width:100%;font:inherit;font-size:17px;color:var(--text);background:var
 .pempty{color:var(--text-2);margin-top:40px;text-align:center}
 #toast.act{pointer-events:auto}
 .toast-act{color:var(--acc);font-weight:700;margin-left:12px;min-height:32px}
+.opgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.opgrid button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:72px;border-radius:var(--r-m);font-size:var(--t-cap);color:var(--text-2)}
+.opgrid button svg{width:26px;height:26px;color:var(--text)}
+.opgrid button:active{background:var(--fill)}
 .warn{margin:14px 0 0;color:var(--danger)}
 .prog{height:4px;background:var(--fill);border-radius:2px;overflow:hidden;margin:18px 0 6px}
 .prog div{height:100%;background:var(--acc);transform:scaleX(0);transform-origin:left;transition:transform .2s linear}
@@ -186,7 +191,7 @@ button:active:not(:disabled){transform:scale(.96)}
   <canvas id="cv" aria-label="Carousel canvas"></canvas>
   <div class="zoom"><button id="zout" aria-label="Zoom out">−</button><button id="zfit">Fit</button><button id="zin" aria-label="Zoom in">+</button></div>
   <div id="rail" hidden></div>
-  <div id="empty"><h1>Make a carousel</h1><p>Photos and videos go one per slide. Drag them across the cut marks to run one picture over two slides.</p><button class="btn" id="emptyAdd">Add photos and videos</button></div>
+  <div id="empty"><h1>Make a carousel</h1><p>Photos and videos go one per slide. Drag them across the cut marks to run one picture over two slides.</p><button class="btn" id="emptyAdd">Add photos and videos</button><button class="btn quiet" id="emptySaved" hidden>Your carousels</button></div>
 </main>
 <nav id="tray"></nav>
 <div id="projects" hidden><div class="ph"><h1>Carousels</h1><button class="btn quiet" id="pEdit">Edit</button><button class="btn" id="pNew">New</button></div><div class="pgrid" id="pgrid"></div></div>
@@ -330,7 +335,7 @@ function drawBg(ctx){
   ctx.fillStyle = f; ctx.fillRect(0, 0, tw, H());
 }
 function drawItem(ctx, it, alpha = 1){
-  ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(it.rot); ctx.globalAlpha = it.opacity * alpha;
+  ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(it.rot); if (it.flipX || it.flipY) ctx.scale(it.flipX ? -1 : 1, it.flipY ? -1 : 1); ctx.globalAlpha = it.opacity * alpha;
   if (it.type === 'text') {
     const lines = layoutText(it), lh = it.size * 1.2, w = it.w;
     ctx.font = fontOf(it); ctx.fillStyle = it.color; ctx.textBaseline = 'middle'; ctx.textAlign = it.align;
@@ -756,7 +761,7 @@ function act(name){
   if (name === 'more') return sheetMore();
   if (!it) return;
   if (name === 'crop') { cropMode = true; closeSheet(); }
-  if (name === 'fill') { const s = clamp(Math.floor(it.x / W()), 0, S.slides - 1); frame(it, s * W(), 0, W(), H()); }
+  if (name === 'position') return sheetPosition();
   if (name === 'style') return it.type === 'text' ? sheetText() : sheetStyle();
   if (name === 'sound') { it.muted = !it.muted; toast(it.muted ? 'Muted in export' : 'Sound on in export'); }
   if (name === 'up' && idx < S.items.length - 1) S.items.splice(idx + 1, 0, S.items.splice(idx, 1)[0]);
@@ -782,6 +787,18 @@ const IC = {
   dup:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
   del:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
   sound:'<path d="M4 9v6h4l5 4V5L8 9zM16 9a4 4 0 0 1 0 6"/>',
+  position:'<path d="M4 4v16"/><rect x="7" y="7" width="13" height="10" rx="1.5"/>',
+  alignL:'<path d="M4 4v16"/><rect x="7" y="7" width="12" height="10" rx="1.5"/>',
+  alignCX:'<path d="M12 3v18"/><rect x="6" y="7" width="12" height="10" rx="1.5"/>',
+  alignR:'<path d="M20 4v16"/><rect x="5" y="7" width="12" height="10" rx="1.5"/>',
+  alignT:'<path d="M4 4h16"/><rect x="7" y="7" width="10" height="12" rx="1.5"/>',
+  alignCY:'<path d="M3 12h18"/><rect x="7" y="6" width="10" height="12" rx="1.5"/>',
+  alignB:'<path d="M4 20h16"/><rect x="7" y="5" width="10" height="12" rx="1.5"/>',
+  fillH:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M12 7v10M9.5 9.5 12 7l2.5 2.5M9.5 14.5 12 17l2.5-2.5"/>',
+  fillW:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 12h10M9.5 9.5 7 12l2.5 2.5M14.5 9.5 17 12l-2.5 2.5"/>',
+  fill2:'<rect x="2" y="5" width="10" height="14" rx="1.5"/><rect x="12" y="5" width="10" height="14" rx="1.5"/><path d="M5 12h14M7.5 9.5 5 12l2.5 2.5M16.5 9.5 19 12l-2.5 2.5"/>',
+  flipH:'<path d="M12 3v18M9 8 4 12l5 4zM15 8l5 4-5 4z"/>',
+  flipV:'<path d="M3 12h18M8 9l4-5 4 5zM8 15l4 5 4-5z"/>',
   more:'<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>',
   mute:'<path d="M4 9v6h4l5 4V5L8 9zM16 9l5 6M21 9l-5 6"/>'
 };
@@ -817,8 +834,8 @@ function updUI(){
   // at most five tools so nothing scrolls off a phone; the rest live under More
   let tools;
   if (!it) tools = [['media','Media'],['text','Text'],['bg','Background'],['border','Border'],['slides','Slides']];
-  else if (it.type === 'text') tools = [['edit','Edit','style'],['more','More']];
-  else tools = [['crop','Crop'],['border','Border'],['fill','Fill'],['style','Style'],['more','More']];
+  else if (it.type === 'text') tools = [['edit','Edit','style'],['position','Position'],['more','More']];
+  else tools = [['crop','Crop'],['border','Border'],['position','Position'],['style','Style'],['more','More']];
   const key = tools.map(t => t[0] + t[1]).join();
   if (tray.dataset.key === key) return;
   tray.dataset.key = key;
@@ -838,6 +855,7 @@ $('#zin').onclick = () => zoomAt(SW / 2, SH / 2, 1.25);
 $('#zout').onclick = () => zoomAt(SW / 2, SH / 2, .8);
 $('#zfit').onclick = () => fit();
 $('#emptyAdd').onclick = () => $('#file').click();
+$('#emptySaved').onclick = () => showProjects();
 document.addEventListener('keydown', e => {
   if (e.target.matches('input,textarea')) return;
   const it = getSel(), mod = e.metaKey || e.ctrlKey;
@@ -858,7 +876,7 @@ const hapLabel = (() => { const l = document.createElement('label'), i = documen
 function tick(){ try { if (navigator.vibrate) navigator.vibrate(6); else hapLabel.click(); } catch {} }
 function tickOnStep(input){ if (input._last !== input.value) { if (input._last !== undefined) tick(); input._last = input.value; } }
 // Home-screen web apps keep running an old copy; check for a newer deploy whenever the app comes back to the front.
-const BUILD = '20261124-3';
+const BUILD = '20261124-4';
 let liveBuild = '';
 async function checkUpdate(){
   try {
@@ -1005,6 +1023,40 @@ function sheetText(focus){
     ${range('Size', 'size', 2, 37, .5, it.size, W() / 100)}${swatches('color', it.color)}${range('Opacity', 'opacity', 5, 100, 1, it.opacity, .01)}`);
   if (focus === true) setTimeout(() => { const t = sheet.querySelector('textarea'); t.focus(); t.select(); }, 60);
 }
+// Position: line a photo up on its slide, make it fill the slide (or two), or mirror it.
+function positionOp(op){
+  const it = getSel(); if (!it) return;
+  const w = W(), h = H(), s = slideOf(it), {ex, ey} = ext(it);
+  const fillTo = (nw, nh, cx) => { it.rot = 0; it.w = nw; if (it.type === 'text') { it.size *= nw / it.w0; layoutText(it); } else it.h = nh; it.x = cx; it.y = h / 2; };
+  if (op === 'left') it.x = s * w + ex;
+  else if (op === 'cx') it.x = s * w + w / 2;
+  else if (op === 'right') it.x = (s + 1) * w - ex;
+  else if (op === 'top') it.y = ey;
+  else if (op === 'cy') it.y = h / 2;
+  else if (op === 'bottom') it.y = h - ey;
+  else if (op === 'fillH' || op === 'fillW' || op === 'fill2') {
+    const ar = it.w / it.h; it.w0 = it.w;
+    if (op === 'fillH') fillTo(h * ar, h, s * w + w / 2);
+    else { const span = op === 'fill2' ? 2 : 1, seam = op === 'fill2' ? (s + 1 < S.slides ? s + 1 : Math.max(1, s)) : s + .5;
+      if (op === 'fill2' && S.slides < 2) { S.slides = 2; }
+      fillTo(w * span, w * span / ar, seam * w); }
+    delete it.w0; delete it.bp;
+  }
+  else if (op === 'flipX') it.flipX = !it.flipX;
+  else if (op === 'flipY') it.flipY = !it.flipY;
+  else return;
+  if (op !== 'flipX' && op !== 'flipY') delete it.bp;
+  tick(); commit(); dirty = true;
+}
+function sheetPosition(){
+  const b = (op, icn, label) => `<button data-pos="${op}">${ic(icn)}<span>${label}</span></button>`;
+  openSheet(sheetPosition, 'Position', `<div class="sec" style="margin-top:4px">Align on its slide</div>
+    <div class="opgrid">${b('left','alignL','Left')}${b('cx','alignCX','Centre')}${b('right','alignR','Right')}${b('top','alignT','Top')}${b('cy','alignCY','Middle')}${b('bottom','alignB','Bottom')}</div>
+    <div class="sec">Fill</div>
+    <div class="opgrid">${b('fillH','fillH','Height')}${b('fillW','fillW','Width')}${b('fill2','fill2','2 slides')}</div>
+    <div class="sec">Flip</div>
+    <div class="opgrid">${b('flipX','flipH','Horizontal')}${b('flipY','flipV','Vertical')}</div>`);
+}
 function sheetMore(){
   const it = getSel(); if (!it) return;
   const row = (a, icn, label, cls = '') => `<button data-a="${a}" class="${cls}">${ic(icn)}${label}</button>`;
@@ -1037,6 +1089,7 @@ sheet.addEventListener('click', e => {
   else if (d.bgtype) S.bg.type = d.bgtype;
   else if (d.pick !== undefined) { slideSel = +d.pick; glideTo(slideSel); tick(); return refresh(); }
   else if (d.slideop) return slideOp(d.slideop);
+  else if (d.pos) return positionOp(d.pos);
   else if (d.r) { setRatio(d.r); return refresh(); }
   else if (d.guide) { GUIDE.mode = d.guide; try { localStorage.setItem('seam.guides', JSON.stringify(GUIDE)); } catch {} dirty = true; return refresh(); }
   else if (it && d.font) it.font = d.font;
@@ -1340,7 +1393,7 @@ async function boot(){
   let resume = null; try { resume = sessionStorage.getItem('seam.resume'); sessionStorage.removeItem('seam.resume'); } catch {}
   if (resume) return openProject(resume);
   const n = await idb('projects', 'readonly', st => st.count()).catch(() => 0);
-  if (n) showProjects();
+  $('#emptySaved').hidden = !n; // open to Make a carousel; saved ones are one tap away
 }
 
 /* ---------- self-check (open with #test) ---------- */
