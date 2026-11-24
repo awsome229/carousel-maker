@@ -62,9 +62,11 @@ nav#tray{background:var(--surface);-webkit-backdrop-filter:blur(24px);backdrop-f
 .tool{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;flex:1;max-width:84px;min-height:56px;border-radius:var(--r-m);font-size:var(--t-cap);font-weight:500;color:var(--text-2)}
 .tool svg{color:var(--text)}
 .tool:active,.tool.on{background:var(--fill)}
+.tool:disabled{opacity:.35}
 .tool.danger,.tool.danger svg{color:var(--danger)}
 .croprow{display:flex;align-items:center;gap:8px;width:100%;max-width:520px;padding:0 4px;font-weight:600}
-.croprow .btn{padding:0 12px;font-size:var(--t-body)}
+.croprow .btn{padding:0 12px;font-size:var(--t-body);flex:none}
+.croprow .seg{flex:1;min-width:0}
 .croprow .val{min-width:44px}
 .croprow input{flex:1}
 
@@ -90,6 +92,7 @@ input[type=range]{accent-color:var(--acc);height:44px;margin:0}
 .sw.custom i{background:conic-gradient(#ff5e5e,#ffd25e,#7cff6b,#5ee7ff,#6b7bff,#ff6bf0,#ff5e5e)}
 .sw.custom input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
 .presets{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
+.preset.on{box-shadow:0 0 0 2px var(--ground),0 0 0 4px var(--ring)}
 .preset{flex:none;width:52px;height:52px;border-radius:var(--r-m);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
 textarea{width:100%;font:inherit;font-size:17px;color:var(--text);background:var(--fill);border:0;border-radius:var(--r-m);padding:12px;resize:vertical;min-height:76px;user-select:text;-webkit-user-select:text}
 .stepper{display:flex;align-items:center;gap:16px;font-size:var(--t-hero);font-weight:700;font-variant-numeric:tabular-nums}
@@ -127,6 +130,8 @@ textarea{width:100%;font:inherit;font-size:17px;color:var(--text);background:var
 #rail .add{opacity:1;display:grid;place-items:center;color:var(--text-2);font-size:22px}
 #projects{position:fixed;inset:0;bottom:calc(-1 * var(--fix,0px));z-index:8;background:var(--ground);overflow:auto;padding:calc(14px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))}
 #projects[hidden]{display:none}
+.pback{display:flex;align-items:center;gap:2px;min-height:44px;margin-left:-8px;color:var(--acc);font-size:var(--t-title)}
+.pback svg{width:24px;height:24px;stroke-width:2.2}
 .ph{display:flex;align-items:center;gap:8px;margin-bottom:18px}
 .ph h1{font-size:34px;letter-spacing:.01em;margin:0;flex:1}
 .ph .btn{font-size:var(--t-body)}
@@ -152,17 +157,24 @@ textarea{width:100%;font:inherit;font-size:17px;color:var(--text);background:var
 .phone{background:#fff;color:#111;border-radius:var(--r-l);width:min(400px,100%);overflow:hidden;margin:auto 16px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
 .igbar{display:flex;align-items:center;gap:10px;padding:8px 8px 8px 14px;font-weight:600}
 .igbar i{width:28px;height:28px;border-radius:50%;background:#d9d6cf}
-.igbar .btn.icon{margin-left:auto;color:#111}
+.igbar .btn.icon{color:#111}
 .car{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
 .car::-webkit-scrollbar{display:none}
 .car canvas{flex:0 0 100%;width:100%;scroll-snap-align:start;display:block}
+.igbar .seg{margin-left:auto;background:rgba(118,118,128,.12)}
+.igbar .seg button{min-height:30px;padding:0 12px;color:#3c3c43;font-size:var(--t-cap)}
+.igbar .seg .thumb{background:#fff;box-shadow:0 3px 8px rgba(0,0,0,.12),0 3px 1px rgba(0,0,0,.04)}
+.igbar .seg.thumbed button[aria-pressed=true]{color:#000}
+.pvgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding-bottom:2px}
+.pvgrid[hidden],#pvpost[hidden],.dots[hidden]{display:none}
+.pvgrid canvas,.pvgrid i{width:100%;aspect-ratio:3/4;display:block;background:#efeff0}
 .dots{display:flex;justify-content:center;gap:5px;padding:12px 0 16px}
 .dots b{width:6px;height:6px;border-radius:50%;background:#cfccc4}
 .dots b.on{background:var(--acc)}
 .count{position:absolute;margin:10px;right:0;background:rgba(0,0,0,.6);color:#fff;font-size:var(--t-cap);border-radius:10px;padding:2px 8px;font-variant-numeric:tabular-nums}
 
-#toast{position:fixed;left:50%;top:calc(60px + env(safe-area-inset-top));transform:translate(-50%,-12px);background:rgba(44,44,46,.92);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);color:var(--text);box-shadow:0 10px 30px rgba(0,0,0,.35);padding:10px 16px;border-radius:var(--r-m);font-weight:600;opacity:0;transition:opacity .2s,transform .3s var(--ease);pointer-events:none;z-index:20;max-width:90vw;text-align:center}
-#update{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom) - var(--fix,0px));transform:translateX(-50%);z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+#toast{position:fixed;left:50%;bottom:calc(150px + env(safe-area-inset-bottom) - var(--fix,0px));transform:translate(-50%,12px);background:rgba(44,44,46,.92);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);color:var(--text);box-shadow:0 10px 30px rgba(0,0,0,.35);padding:10px 16px;border-radius:var(--r-m);font-weight:600;opacity:0;transition:opacity .2s,transform .3s var(--ease);pointer-events:none;z-index:20;max-width:90vw;text-align:center}
+#update{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top));transform:translateX(-50%);z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.4)}
 #update[hidden]{display:none}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 #vids{position:fixed;width:2px;height:2px;opacity:.01;pointer-events:none;overflow:hidden;left:0;top:0}
@@ -173,6 +185,9 @@ button:active:not(:disabled){transform:scale(.96)}
 .seg{position:relative}
 .seg button{position:relative;z-index:1;transition:color .25s}
 .seg.thumbed button[aria-pressed=true]{background:none}
+.seg.fadeR{-webkit-mask-image:linear-gradient(90deg,#000 82%,transparent);mask-image:linear-gradient(90deg,#000 82%,transparent)}
+.seg.fadeL{-webkit-mask-image:linear-gradient(90deg,transparent,#000 18%);mask-image:linear-gradient(90deg,transparent,#000 18%)}
+.seg.fadeL.fadeR{-webkit-mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent);mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent)}
 .seg .thumb{position:absolute;top:3px;bottom:3px;left:0;border-radius:11px;background:var(--sel);box-shadow:0 3px 8px rgba(0,0,0,.12),0 3px 1px rgba(0,0,0,.04);transform-origin:left center;pointer-events:none}
 #rail button,.strip button{transition:opacity .25s,box-shadow .25s,transform .14s var(--ease-out)}
 @media (prefers-reduced-motion:reduce){#sheet,#toast,button,#rail button,.strip button{transition:none}button:active:not(:disabled),.tool:active{transform:none}}
@@ -194,7 +209,7 @@ button:active:not(:disabled){transform:scale(.96)}
   <div id="empty"><h1>Make a carousel</h1><p>Photos and videos go one per slide. Drag them across the cut marks to run one picture over two slides.</p><button class="btn" id="emptyAdd">Add photos and videos</button><button class="btn quiet" id="emptySaved" hidden>Your carousels</button></div>
 </main>
 <nav id="tray"></nav>
-<div id="projects" hidden><div class="ph"><h1>Carousels</h1><button class="btn quiet" id="pEdit">Edit</button><button class="btn" id="pNew">New</button></div><div class="pgrid" id="pgrid"></div></div>
+<div id="projects" hidden><button class="pback" id="pBack"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>Back</button><div class="ph"><h1>Carousels</h1><button class="btn quiet" id="pEdit">Edit</button><button class="btn" id="pNew">New</button></div><div class="pgrid" id="pgrid"></div></div>
 <div id="sheet" role="dialog" aria-modal="false"></div>
 <div class="modal" id="modal"></div>
 <div id="toast" role="status"></div>
@@ -404,7 +419,19 @@ function render(){
     ctx.restore();
     if (cropMode) drawItem(ctx, it);
     ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(it.rot);
-    ctx.strokeStyle = '#4c8dff'; ctx.lineWidth = 2 * px; ctx.strokeRect(-it.w / 2, -it.h / 2, it.w, it.h);
+    ctx.strokeStyle = cropMode ? '#fff' : '#0a84ff'; ctx.lineWidth = (cropMode ? 1.5 : 2) * px; ctx.strokeRect(-it.w / 2, -it.h / 2, it.w, it.h);
+    if (cropMode && it.type !== 'text') { // crop marks: corner brackets and edge bars, dark under light so they show on any photo
+      const L = 18 * px;
+      for (const [col, lw] of [['rgba(0,0,0,.45)', 7 * px], ['#fff', 4 * px]]) {
+        ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.beginPath();
+        for (const h of cropHandles(it)) {
+          if (h.hx && h.hy) { ctx.moveTo(h.lx, h.ly - h.hy * L); ctx.lineTo(h.lx, h.ly); ctx.lineTo(h.lx - h.hx * L, h.ly); }
+          else if (h.hx) { ctx.moveTo(h.lx, -L / 1.4); ctx.lineTo(h.lx, L / 1.4); }
+          else { ctx.moveTo(-L / 1.4, h.ly); ctx.lineTo(L / 1.4, h.ly); }
+        }
+        ctx.stroke();
+      }
+    }
     if (!cropMode) {
       const hs = handles(it), r = handles(it).find(x => x.rot);
       ctx.beginPath(); ctx.moveTo(0, -it.h / 2); ctx.lineTo(r.lx, r.ly); ctx.stroke();
@@ -487,6 +514,55 @@ function hitItem(wx, wy){
   }
   return null;
 }
+// Crop works like Word's picture crop: drag the frame's edges in or out over the picture, which stays put;
+// drag inside to slide the picture, pinch to scale it. A shape lock keeps the frame's proportions.
+const CROP_SHAPES = [['free','Free'],['orig','Original'],['1:1','1:1'],['4:5','4:5'],['3:4','3:4'],['16:9','16:9'],['9:16','9:16']];
+function contentRect(it){ // the whole picture, in the frame's own coordinates (centre = 0,0)
+  const m = media.get(it.mediaId), c = cover(m.w, m.h, it.w, it.h, it.fx, it.fy, it.zoom), l = -it.w / 2 + c.dx, t = -it.h / 2 + c.dy;
+  return {l, t, r:l + c.dw, b:t + c.dh};
+}
+function lockRatio(it){
+  if (!it.lock || it.lock === 'free') return 0;
+  if (it.lock === 'orig') { const m = media.get(it.mediaId); return m.w / m.h; }
+  const [a, b] = it.lock.split(':').map(Number); return a / b;
+}
+function applyCrop(it, i0, c0, L, T, R, B){ // new frame edges (in i0's coordinates), picture unchanged on screen
+  const w = R - L, h = B - T, mx = (L + R) / 2, my = (T + B) / 2, cs = Math.cos(i0.rot), sn = Math.sin(i0.rot);
+  it.x = i0.x + mx * cs - my * sn; it.y = i0.y + mx * sn + my * cs; it.w = w; it.h = h;
+  const m = media.get(it.mediaId), dw = c0.r - c0.l, dh = c0.b - c0.t;
+  it.zoom = Math.max(1, dw / (m.w * Math.max(w / m.w, h / m.h)));
+  it.fx = dw - w > .5 ? clamp((c0.l - L) / (w - dw), 0, 1) : .5;
+  it.fy = dh - h > .5 ? clamp((c0.t - T) / (h - dh), 0, 1) : .5;
+  delete it.bp;
+}
+function cropHandles(it){
+  const w2 = it.w / 2, h2 = it.h / 2, list = [];
+  for (const [hx, hy] of [[-1,-1],[1,-1],[-1,1],[1,1]]) list.push({hx, hy, lx:hx * w2, ly:hy * h2});
+  if (!lockRatio(it)) list.push({hx:1, hy:0, lx:w2, ly:0}, {hx:-1, hy:0, lx:-w2, ly:0}, {hx:0, hy:-1, lx:0, ly:-h2}, {hx:0, hy:1, lx:0, ly:h2});
+  return list;
+}
+function cropDrag(it, i0, c0, hd, dx, dy){
+  const {hx, hy} = hd, MIN = 40, r = lockRatio(it);
+  let L = -i0.w / 2, R = i0.w / 2, T = -i0.h / 2, B = i0.h / 2;
+  if (hx < 0) L = clamp(L + dx, c0.l, R - MIN); if (hx > 0) R = clamp(R + dx, L + MIN, c0.r);
+  if (hy < 0) T = clamp(T + dy, c0.t, B - MIN); if (hy > 0) B = clamp(B + dy, T + MIN, c0.b);
+  if (r && hx && hy) { // keep the shape, anchored at the opposite corner, inside the picture
+    const ax = hx < 0 ? R : L, ay = hy < 0 ? B : T;
+    let w = R - L, h = B - T; if (w / h > r) w = h * r; else h = w / r;
+    const k = Math.min(1, (hx < 0 ? ax - c0.l : c0.r - ax) / w, (hy < 0 ? ay - c0.t : c0.b - ay) / h); w *= k; h *= k;
+    if (hx < 0) L = ax - w; else R = ax + w;
+    if (hy < 0) T = ay - h; else B = ay + h;
+  }
+  applyCrop(it, i0, c0, L, T, R, B);
+}
+function setCropShape(it, v){
+  it.lock = v; const r = lockRatio(it); if (!r) return;
+  const c0 = contentRect(it), cw = c0.r - c0.l, ch = c0.b - c0.t, i0 = {...it};
+  let w = Math.min(cw, ch * r, Math.max(it.w, it.h * r)), h = w / r; // largest frame of that shape around the current crop
+  if (h > ch) { h = ch; w = h * r; }
+  const cx = clamp(0, c0.l + w / 2, c0.r - w / 2), cy = clamp(0, c0.t + h / 2, c0.b - h / 2);
+  applyCrop(it, i0, c0, cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2);
+}
 function overlaps(a, b){ const A = ext(a), B = ext(b); return Math.abs(a.x - b.x) < A.ex + B.ex && Math.abs(a.y - b.y) < A.ey + B.ey; }
 function hitHandle(it, wx, wy){
   for (const hd of handles(it)) {
@@ -515,6 +591,10 @@ cv.addEventListener('pointerdown', e => {
   if (it && !cropMode) {
     const hd = hitHandle(it, wx, wy);
     if (hd) { g = {...base, t: hd.rot ? 'rot' : 'resize', hd, it0:{...it}}; return; }
+  }
+  if (it && cropMode && it.type !== 'text') {
+    const hd = cropHandles(it).find(h => { const [hx, hy] = toWorld(it, h.lx, h.ly); return Math.hypot(wx - hx, wy - hy) < 22 / view.z; });
+    if (hd) { g = {...base, t:'cropEdge', hd, it0:{...it}, c0:contentRect(it)}; return; }
   }
   const hit = (cropMode && it && hitItem(wx, wy) === it) ? it : hitItem(wx, wy);
   const below = it && hit && hit !== it && S.items.indexOf(hit) < S.items.indexOf(it) && overlaps(hit, it);
@@ -554,6 +634,10 @@ cv.addEventListener('pointermove', e => {
   const [wx, wy] = world(px, py);
   if (g.t === 'pan') { view.x = g.v0.x - (px - g.spx) / view.z; view.y = g.v0.y - (py - g.spy) / view.z; }
   else if (g.t === 'move' && it) moveSnap(it, g.it0.x + wx - g.sx, g.it0.y + wy - g.sy);
+  else if (g.t === 'cropEdge' && it) {
+    const cs = Math.cos(-g.it0.rot), sn = Math.sin(-g.it0.rot), dx = wx - g.sx, dy = wy - g.sy;
+    cropDrag(it, g.it0, g.c0, g.hd, dx * cs - dy * sn, dx * sn + dy * cs);
+  }
   else if (g.t === 'crop' && it) {
     const m = media.get(it.mediaId), c = cover(m.w, m.h, it.w, it.h, .5, .5, it.zoom);
     const cs = Math.cos(-it.rot), sn = Math.sin(-it.rot), dx = wx - g.sx, dy = wy - g.sy;
@@ -817,6 +901,7 @@ const ic = n => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[n]}</svg>`;
 function updUI(){
   dirty = true;
   $('#undo').disabled = !hist.length; $('#redo').disabled = !fut.length;
+  $('#exportBtn').disabled = $('#previewBtn').disabled = !S.items.length; // nothing to export or preview yet
   $('#empty').hidden = S.items.length > 0;
   const it = getSel();
   if (trayMode === 'border') {
@@ -832,13 +917,10 @@ function updUI(){
     return;
   }
   if (it && cropMode) {
-    tray.innerHTML = `<div class="croprow"><input type="range" id="cz" min="100" max="500" step="1" value="${Math.round(it.zoom * 100)}" aria-label="Zoom inside frame"><span class="val" id="czv">${Math.round(it.zoom * 100)}%</span>
-      <button class="btn quiet" id="creset">Reset</button><button class="btn" id="cdone">Done</button></div>`;
+    tray.innerHTML = `<div class="croprow">${seg('lock', CROP_SHAPES, it.lock || 'free', 'Crop shape')}<button class="btn" id="cdone">Done</button></div>`;
+    setupSegs(tray);
     if (tray.dataset.key !== 'crop') enter(tray.children, {y:6, dur:240});
     tray.dataset.key = 'crop';
-    $('#cz').oninput = e => { it.zoom = +e.target.value / 100; $('#czv').textContent = e.target.value + '%'; tickOnStep(e.target); dirty = true; };
-    $('#cz').onchange = commit;
-    $('#creset').onclick = () => { Object.assign(it, {fx:.5, fy:.5, zoom:1}); commit(); updUI(); };
     $('#cdone').onclick = () => { cropMode = false; updUI(); };
     return;
   }
@@ -847,13 +929,18 @@ function updUI(){
   if (!it) tools = [['media','Media'],['text','Text'],['bg','Background'],['border','Border'],['slides','Slides']];
   else if (it.type === 'text') tools = [['edit','Edit','style'],['position','Position'],['more','More']];
   else tools = [['crop','Crop'],['border','Border'],['position','Position'],['style','Style'],['more','More']];
-  const key = tools.map(t => t[0] + t[1]).join();
+  const noPhotos = !S.items.some(i => i.type !== 'text'), off = a => a === 'border' && noPhotos;
+  const key = tools.map(t => t[0] + t[1]).join() + noPhotos;
   if (tray.dataset.key === key) return;
   tray.dataset.key = key;
-  tray.innerHTML = tools.map(([icn, label, a]) => `<button class="tool" data-a="${a || icn}">${ic(icn)}${label}</button>`).join('');
+  tray.innerHTML = tools.map(([icn, label, a]) => `<button class="tool" data-a="${a || icn}"${off(a || icn) ? ' disabled' : ''}>${ic(icn)}${label}</button>`).join('');
   enter(tray.children, {y:6, stagger:18, dur:260});
 }
-tray.addEventListener('click', e => { const b = e.target.closest('[data-a]'); if (b) act(b.dataset.a); });
+tray.addEventListener('click', e => {
+  const l = e.target.closest('[data-lock]'), it = getSel();
+  if (l && it) { setCropShape(it, l.dataset.lock); tick(); commit(); return updUI(); }
+  const b = e.target.closest('[data-a]'); if (b) act(b.dataset.a);
+});
 function setRatio(r){
   const k = RATIOS[r][1] / H(); S.ratio = r;
   for (const it of S.items) it.y *= k;
@@ -887,7 +974,7 @@ const hapLabel = (() => { const l = document.createElement('label'), i = documen
 function tick(){ try { if (navigator.vibrate) navigator.vibrate(6); else hapLabel.click(); } catch {} }
 function tickOnStep(input){ if (input._last !== input.value) { if (input._last !== undefined) tick(); input._last = input.value; } }
 // Home-screen web apps keep running an old copy; check for a newer deploy whenever the app comes back to the front.
-const BUILD = '20261124-5';
+const BUILD = '20261124-6';
 let liveBuild = '';
 async function checkUpdate(){
   try {
@@ -911,6 +998,10 @@ function fixHeight(){
   root.setProperty('--fix', Math.max(0, full - innerHeight) + 'px'); // how far fixed panels must reach below iOS's viewport
 }
 fixHeight(); addEventListener('resize', fixHeight);
+if (window.visualViewport) visualViewport.addEventListener('resize', () => { // the on-screen keyboard shrinks the visual viewport
+  const kb = Math.max(0, innerHeight - visualViewport.height - visualViewport.offsetTop);
+  sheet.style.bottom = kb > 80 ? `${kb}px` : ''; sheet.style.maxHeight = kb > 80 ? `${visualViewport.height - 40}px` : '';
+});
 let lastIH = innerHeight; // iOS can change the viewport height without a resize event, so re-check every frame (cheap)
 (function watchIH(){ if (innerHeight !== lastIH) { lastIH = innerHeight; fixHeight(); } requestAnimationFrame(watchIH); })();
 let toastT;
@@ -932,6 +1023,9 @@ function enter(els, {y = 8, scale = 1, stagger = 0, dur = 320} = {}){ // fade th
 const segPos = {};
 function setupSegs(root){
   root.querySelectorAll('.seg').forEach(seg => {
+    seg.querySelector('.thumb')?.remove();
+    const fade = () => { const more = seg.scrollWidth - seg.clientWidth; seg.classList.toggle('fadeR', more > 1 && seg.scrollLeft < more - 1); seg.classList.toggle('fadeL', seg.scrollLeft > 1); };
+    fade(); seg.onscroll = fade;
     const on = seg.querySelector('[aria-pressed=true]'); if (!on) return;
     const key = seg.getAttribute('aria-label'), x = on.offsetLeft, w = on.offsetWidth;
     const t = document.createElement('i'); t.className = 'thumb'; t.style.width = w + 'px'; t.style.transform = `translateX(${x}px)`;
@@ -967,7 +1061,7 @@ const gap = px => `<div style="height:${px}px"></div>`;
 function sheetBg(){
   const b = S.bg;
   openSheet(sheetBg, 'Background', `
-    <div class="presets">${BG_PRESETS.map((p, i) => `<button class="preset" data-preset="${i}" aria-label="Preset ${i + 1}" style="background:${p.type === 'grad' ? `linear-gradient(90deg,${p.c1},${p.c2})` : p.c1}"></button>`).join('')}</div>
+    <div class="presets">${BG_PRESETS.map((p, i) => `<button class="preset${p.type === S.bg.type && p.c1 === S.bg.c1 && (p.type === 'solid' || p.c2 === S.bg.c2) ? ' on' : ''}" data-preset="${i}" aria-label="Preset ${i + 1}" style="background:${p.type === 'grad' ? `linear-gradient(90deg,${p.c1},${p.c2})` : p.c1}"></button>`).join('')}</div>
     ${gap(14)}${seg('bgtype', [['solid','Solid'],['grad','Gradient']], b.type, 'Background type')}
     ${b.type === 'grad' ? `<div class="sec">Left</div>${swatches('c1', b.c1, true)}<div class="sec">Right</div>${swatches('c2', b.c2, true)}` : gap(14) + swatches('c1', b.c1, true)}`);
 }
@@ -983,8 +1077,17 @@ function sheetBorder(){
     ${gap(14)}${swatches('c1', S.bg.type === 'solid' ? S.bg.c1 : '#ffffff', true)}
     <div class="actions">${it && it.type !== 'text' ? '<button class="btn quiet" data-bapply="one">This photo</button>' : ''}<button class="btn" data-bapply="all">All photos</button></div>
     <p class="cap">All photos puts each one on its own slide.</p>`);
-  $('#bthick').oninput = e => { tickOnStep(e.target); BORDER.v = +e.target.value; $('#bval').textContent = unit(BORDER.v); if ($('#bcap')) $('#bcap').textContent = `${Math.round(borderPx())} px on each side of a 1080 px slide`; saveBorder(); reborder(); };
+  $('#bthick').oninput = e => { tickOnStep(e.target); ensureBorder(); BORDER.v = +e.target.value; $('#bval').textContent = unit(BORDER.v); if ($('#bcap')) $('#bcap').textContent = `${Math.round(borderPx())} px on each side of a 1080 px slide`; saveBorder(); reborder(); };
   $('#bthick').onchange = () => { commit(); refresh(); };
+}
+// First touch of a border control with nothing bordered yet: border the selected photo, or every photo
+// that sits on one slide, in place (photos spanning slides are left alone so panoramas survive).
+function ensureBorder(){
+  if (S.items.some(i => i.bp)) return;
+  const it = getSel();
+  const targets = it && it.type !== 'text' ? [it]
+    : S.items.filter(i => i.type !== 'text' && Array.from({length:S.slides}, (_, k) => inSlide(i, k)).filter(Boolean).length === 1);
+  targets.forEach(t => borderFrame(t, slideOf(t)));
 }
 const saveBorder = () => { try { localStorage.setItem('seam.border', JSON.stringify(BORDER)); } catch {} };
 // Slide operations move whatever sits on a slide (by its centre) along with it.
@@ -1091,8 +1194,8 @@ sheet.addEventListener('click', e => {
   if (b.classList.contains('done')) return closeSheet();
   if (d.a) { closeSheet(); return act(d.a); }
   if (d.bunit) { BORDER.v = d.bunit === 'px' ? Math.round(borderPx()) : +(borderPx() / W() * 100).toFixed(1); BORDER.unit = d.bunit; saveBorder(); }
-  else if (d.bv) { BORDER.v = +d.bv; saveBorder(); reborder(); }
-  else if (d.bmode) { BORDER.mode = d.bmode; saveBorder(); reborder(); }
+  else if (d.bv) { BORDER.v = +d.bv; saveBorder(); ensureBorder(); reborder(); }
+  else if (d.bmode) { BORDER.mode = d.bmode; saveBorder(); ensureBorder(); reborder(); }
   else if (d.bapply === 'all') return borderAll();
   else if (d.bapply === 'one' && it) borderFrame(it, slideOf(it));
   else if (d.sw) { ('bg' in d ? S.bg : it)[d.k] = d.sw; if (sheetFn === sheetBorder) S.bg.type = 'solid'; }
@@ -1116,13 +1219,23 @@ let pvOpen = false;
 function openPreview(){
   sel = null; cropMode = false; closeSheet(); updUI();
   const w = 540, h = Math.round(540 * H() / W());
-  modal.innerHTML = `<div class="phone"><div class="igbar"><i></i>your_account<button class="btn icon" id="pvx" aria-label="Close preview"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
-    <div style="position:relative"><span class="count" id="pvc">1/${S.slides}</span><div class="car" id="car">${Array.from({length:S.slides}, (_, i) => `<canvas width="${w}" height="${h}" data-i="${i}"></canvas>`).join('')}</div></div>
-    <div class="dots">${Array.from({length:S.slides}, (_, i) => `<b class="${i ? '' : 'on'}"></b>`).join('')}</div></div>`;
+  modal.innerHTML = `<div class="phone"><div class="igbar"><i></i>your_account${seg('pv', [['post','Post'],['grid','Grid']], 'post', 'Preview')}<button class="btn icon" id="pvx" aria-label="Close preview"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="pvgrid" id="pvgrid" hidden><canvas width="240" height="320"></canvas>${'<i></i>'.repeat(8)}</div>
+    <div style="position:relative" id="pvpost"><span class="count" id="pvc">1/${S.slides}</span><div class="car" id="car">${Array.from({length:S.slides}, (_, i) => `<canvas width="${w}" height="${h}" data-i="${i}"></canvas>`).join('')}</div></div>
+    <div class="dots" id="pvdots">${Array.from({length:S.slides}, (_, i) => `<b class="${i ? '' : 'on'}"></b>`).join('')}</div></div>`;
   modal.classList.add('open'); pvOpen = true; showModalAnim();
   const car = $('#car'), cs = [...car.children];
   car.onscroll = () => { const i = Math.round(car.scrollLeft / car.clientWidth); $('#pvc').textContent = `${i + 1}/${S.slides}`; modal.querySelectorAll('.dots b').forEach((b, j) => b.classList.toggle('on', i === j)); };
   $('#pvx').onclick = closeModal;
+  setupSegs(modal);
+  modal.querySelector('.igbar .seg').onclick = e => { const b = e.target.closest('[data-pv]'); if (!b) return;
+    const grid = b.dataset.pv === 'grid'; modal.querySelectorAll('[data-pv]').forEach(x => x.setAttribute('aria-pressed', x === b));
+    $('#pvgrid').hidden = !grid; $('#pvpost').hidden = $('#pvdots').hidden = grid; setupSegs(modal); tick();
+    if (grid) { // slide 1 as your profile grid shows it: centre-cropped to 3:4
+      const c = $('#pvgrid canvas'), gw = Math.min(W(), H() * 3 / 4), gh = gw * 4 / 3, k = c.width / gw, ctx = ctx2d(c);
+      ctx.setTransform(k, 0, 0, k, -(W() - gw) / 2 * k, -(H() - gh) / 2 * k); drawBg(ctx); for (const it of S.items) drawItem(ctx, it);
+    }
+  };
   (function pv(){ if (!pvOpen) return; cs.forEach(c => renderSlide(ctx2d(c), +c.dataset.i, c.width / W())); requestAnimationFrame(pv); })();
 }
 function showModalAnim(){
@@ -1385,6 +1498,7 @@ async function showProjects(){
 }
 $('#projectsBtn').onclick = showProjects;
 $('#pNew').onclick = newProject;
+$('#pBack').onclick = hideProjects;
 $('#pEdit').onclick = () => { const on = $('#projects').classList.toggle('editing'); $('#pEdit').textContent = on ? 'Done' : 'Edit'; };
 $('#pgrid').addEventListener('click', async e => {
   const o = e.target.closest('[data-open]'), d = e.target.closest('[data-del]');
