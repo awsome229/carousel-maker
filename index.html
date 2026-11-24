@@ -487,6 +487,7 @@ function hitItem(wx, wy){
   }
   return null;
 }
+function overlaps(a, b){ const A = ext(a), B = ext(b); return Math.abs(a.x - b.x) < A.ex + B.ex && Math.abs(a.y - b.y) < A.ey + B.ey; }
 function hitHandle(it, wx, wy){
   for (const hd of handles(it)) {
     const [hx, hy] = toWorld(it, hd.lx, hd.ly);
@@ -503,7 +504,11 @@ cv.addEventListener('pointerdown', e => {
   cv.setPointerCapture(e.pointerId);
   for (const m of media.values()) if (m.kind === 'video' && m.el.paused && !exporting) m.el.play().catch(() => {}); // a tap counts as permission to play on iOS
   const [px, py] = pos(e); ptrs.set(e.pointerId, {x:px, y:py});
-  if (ptrs.size === 2) { const it = getSel(); g = {t:'pinch', p0:pinchInfo(), it0: it ? {...it} : null, v0:{...view}}; return; }
+  if (ptrs.size === 2) {
+    // pinch resizes the selected item only if the first finger landed on it; otherwise it zooms the view
+    const it = getSel(), onItem = it && g && ['move','resize','rot','crop'].includes(g.t);
+    g = {t:'pinch', p0:pinchInfo(), it0: onItem ? {...it} : null, v0:{...view}}; return;
+  }
   if (ptrs.size > 2) return;
   const [wx, wy] = world(px, py), it = getSel();
   const base = {sx:wx, sy:wy, spx:px, spy:py, moved:false};
@@ -512,7 +517,12 @@ cv.addEventListener('pointerdown', e => {
     if (hd) { g = {...base, t: hd.rot ? 'rot' : 'resize', hd, it0:{...it}}; return; }
   }
   const hit = (cropMode && it && hitItem(wx, wy) === it) ? it : hitItem(wx, wy);
-  if (hit) {
+  const below = it && hit && hit !== it && S.items.indexOf(hit) < S.items.indexOf(it) && overlaps(hit, it);
+  if (below) {
+    // Touching the layer underneath the selection (e.g. a big photo under some text): drag pans, pinch zooms,
+    // a plain tap still selects it. Keeps the big photo from being grabbed by accident.
+    g = {...base, t:'pan', v0:{...view}, tapSelect:hit.id};
+  } else if (hit) {
     if (hit.id !== sel) { sel = hit.id; cropMode = false; closeSheet(); updUI(); }
     g = {...base, t: cropMode ? 'crop' : 'move', it0:{...hit}};
   } else {
@@ -563,7 +573,8 @@ cv.addEventListener('pointermove', e => {
 function endPtr(e){
   if (!ptrs.has(e.pointerId)) return;
   ptrs.delete(e.pointerId);
-  if (g && g.t !== 'pinch' && !g.moved && ptrs.size === 0) { // tap
+  if (g && g.tapSelect && !g.moved && ptrs.size === 0) { sel = g.tapSelect; cropMode = false; closeSheet(); updUI(); lastTap = {t:performance.now(), id:sel}; }
+  else if (g && g.t !== 'pinch' && !g.moved && ptrs.size === 0) { // tap
     const it = getSel(), now = performance.now();
     if (it && lastTap.id === it.id && now - lastTap.t < 320) {
       if (it.type === 'text') sheetText(); else { cropMode = !cropMode; updUI(); }
@@ -876,7 +887,7 @@ const hapLabel = (() => { const l = document.createElement('label'), i = documen
 function tick(){ try { if (navigator.vibrate) navigator.vibrate(6); else hapLabel.click(); } catch {} }
 function tickOnStep(input){ if (input._last !== input.value) { if (input._last !== undefined) tick(); input._last = input.value; } }
 // Home-screen web apps keep running an old copy; check for a newer deploy whenever the app comes back to the front.
-const BUILD = '20261124-4';
+const BUILD = '20261124-5';
 let liveBuild = '';
 async function checkUpdate(){
   try {
